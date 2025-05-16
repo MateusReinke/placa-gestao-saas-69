@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Check, Clock, Loader2 } from 'lucide-react';
+import '@/styles/kanban.css';
 
 const Kanban = () => {
   const { user } = useAuth();
@@ -93,6 +94,36 @@ const Kanban = () => {
     });
   };
 
+  // Helper to determine status CSS class
+  const getStatusClass = (statusName?: string) => {
+    if (!statusName) return '';
+    
+    const statusMap: Record<string, string> = {
+      'Novo': 'status-new',
+      'Em Andamento': 'status-processing',
+      'Pendente': 'status-pending',
+      'Concluído': 'status-completed',
+      'Cancelado': 'status-cancelled',
+    };
+    
+    return statusMap[statusName] || '';
+  };
+
+  // Helper to determine badge style
+  const getStatusBadgeClass = (statusName?: string) => {
+    if (!statusName) return '';
+    
+    const statusMap: Record<string, string> = {
+      'Novo': 'status-badge-new',
+      'Em Andamento': 'status-badge-processing',
+      'Pendente': 'status-badge-pending',
+      'Concluído': 'status-badge-completed',
+      'Cancelado': 'status-badge-cancelled',
+    };
+    
+    return statusMap[statusName] || '';
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -151,13 +182,13 @@ const Kanban = () => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className="kanban-card"
+                                  className={`kanban-card ${getStatusClass(status.name)}`}
                                 >
                                   <CardHeader className="p-3 pb-1">
                                     <div className="flex items-center justify-between">
                                       <Badge
                                         variant="outline"
-                                        className="text-xs font-normal text-muted-foreground"
+                                        className={`text-xs font-normal ${getStatusBadgeClass(status.name)}`}
                                       >
                                         {order.serviceType?.name}
                                       </Badge>

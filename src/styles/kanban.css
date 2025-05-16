@@ -9,18 +9,32 @@
   flex-direction: column;
   margin-right: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.kanban-column:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Card styling within the kanban */
 .kanban-card {
   margin: 0 8px 8px 8px;
   background: hsl(var(--card));
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  border-left-width: 4px;
 }
 
 .kanban-card:hover {
   background: hsl(var(--accent));
+  transform: translateY(-2px);
 }
+
+/* Status color indicators */
+.status-new { border-left-color: #1EAEDB; }
+.status-pending { border-left-color: #F97316; }
+.status-processing { border-left-color: #8b5cf6; }
+.status-completed { border-left-color: #22c55e; }
+.status-cancelled { border-left-color: #ef4444; }
 
 /* Make sure the inner content is scrollable */
 .kanban-column > div:nth-child(2) {
@@ -28,4 +42,30 @@
   min-height: 100px;
   max-height: calc(100% - 40px);
   padding-top: 4px;
+}
+
+/* Status badge styling */
+.status-badge-new {
+  background-color: #D3E4FD !important;
+  color: #0369a1 !important;
+}
+
+.status-badge-pending {
+  background-color: #FEF7CD !important;
+  color: #854d0e !important;
+}
+
+.status-badge-processing {
+  background-color: #f3e8ff !important;
+  color: #7e22ce !important;
+}
+
+.status-badge-completed {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+.status-badge-cancelled {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
 }
