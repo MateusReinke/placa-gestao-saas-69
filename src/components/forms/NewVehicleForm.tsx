@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,6 +15,28 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search } from 'lucide-react';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+
+interface Brand {
+  codigo: string;
+  nome: string;
+}
+
+interface Model {
+  codigo: string;
+  nome: string;
+}
+
+interface Year {
+  codigo: string;
+  nome: string;
+}
 
 const formSchema = z.object({
   licensePlate: z.string().min(7, "Placa inválida").max(8, "Placa inválida"),
@@ -33,6 +55,14 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [searchingModel, setSearchingModel] = useState(false);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [years, setYears] = useState<Year[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [loadingBrands, setLoadingBrands] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingYears, setLoadingYears] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,43 +76,106 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
     },
   });
 
-  // Buscar informações do veículo por modelo
-  const searchModelInfo = async (modelQuery: string) => {
-    setSearchingModel(true);
+  // Buscar marcas de veículos na inicialização
+  useEffect(() => {
+    const fetchBrands = async () => {
+      setLoadingBrands(true);
+      try {
+        const response = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas');
+        if (response.ok) {
+          const data = await response.json();
+          setBrands(data);
+        } else {
+          console.error('Erro ao buscar marcas:', response.statusText);
+          toast({
+            title: "Erro",
+            description: "Não foi possível carregar as marcas de veículos.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao buscar marcas:', error);
+      } finally {
+        setLoadingBrands(false);
+      }
+    };
+    
+    fetchBrands();
+  }, [toast]);
+
+  // Buscar modelos quando uma marca é selecionada
+  const fetchModels = async (brandCode: string) => {
+    setLoadingModels(true);
+    setModels([]);
+    setYears([]);
+    form.setValue('model', '');
+    form.setValue('year', '');
+    
     try {
-      // Usando uma API pública de carros (simulação)
-      // Em produção, você usaria uma API real de veículos
-      // Exemplo: https://deividfortuna.github.io/fipe/
-      
-      // Simulação de API com timeout
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Dados simulados
-      const mockData = [
-        { brand: 'Honda', model: 'Civic', year: '2020' },
-        { brand: 'Toyota', model: 'Corolla', year: '2021' },
-        { brand: 'Jeep', model: 'Renegade', year: '2022' },
-        { brand: 'Fiat', model: 'Pulse', year: '2023' },
-        { brand: 'Volkswagen', model: 'Golf', year: '2019' },
-      ];
-      
-      const result = mockData.find(car => 
-        car.model.toLowerCase().includes(modelQuery.toLowerCase())
-      );
-      
-      if (result) {
-        form.setValue('brand', result.brand);
-        form.setValue('year', result.year);
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos`);
+      if (response.ok) {
+        const data = await response.json();
+        setModels(data.modelos);
+      } else {
+        console.error('Erro ao buscar modelos:', response.statusText);
         toast({
-          title: "Modelo encontrado",
-          description: `${result.brand} ${result.model} (${result.year})`,
+          title: "Erro",
+          description: "Não foi possível carregar os modelos.",
+          variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Erro ao buscar modelo:", error);
+      console.error('Erro ao buscar modelos:', error);
     } finally {
-      setSearchingModel(false);
+      setLoadingModels(false);
     }
+  };
+
+  // Buscar anos disponíveis quando um modelo é selecionado
+  const fetchYears = async (brandCode: string, modelCode: string) => {
+    setLoadingYears(true);
+    setYears([]);
+    form.setValue('year', '');
+    
+    try {
+      const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos/${modelCode}/anos`);
+      if (response.ok) {
+        const data = await response.json();
+        setYears(data);
+      } else {
+        console.error('Erro ao buscar anos:', response.statusText);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os anos disponíveis.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar anos:', error);
+    } finally {
+      setLoadingYears(false);
+    }
+  };
+
+  // Manipulador de seleção de marca
+  const handleBrandChange = (value: string) => {
+    form.setValue('brand', brands.find(brand => brand.codigo === value)?.nome || '');
+    setSelectedBrand(value);
+    fetchModels(value);
+  };
+
+  // Manipulador de seleção de modelo
+  const handleModelChange = (value: string) => {
+    form.setValue('model', models.find(model => model.codigo === value)?.nome || '');
+    setSelectedModel(value);
+    if (selectedBrand) {
+      fetchYears(selectedBrand, value);
+    }
+  };
+
+  // Manipulador de seleção de ano
+  const handleYearChange = (value: string) => {
+    form.setValue('year', years.find(year => year.codigo === value)?.nome || '');
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -127,80 +220,132 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
           )}
         />
 
-        <div className="flex gap-4">
-          <FormField
-            control={form.control}
-            name="model"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Modelo</FormLabel>
-                <div className="flex gap-2">
-                  <FormControl>
-                    <Input {...field} placeholder="Ex: Civic" />
-                  </FormControl>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="icon"
-                    disabled={!field.value || searchingModel}
-                    onClick={() => field.value && searchModelInfo(field.value)}
-                  >
-                    {searchingModel ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
+        <div className="space-y-4">
           <FormField
             control={form.control}
             name="brand"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <FormLabel>Marca</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Ex: Honda" />
-                </FormControl>
+                <Select 
+                  disabled={loadingBrands} 
+                  onValueChange={handleBrandChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma marca" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {loadingBrands ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <span>Carregando...</span>
+                        </div>
+                      </SelectItem>
+                    ) : (
+                      brands.map((brand) => (
+                        <SelectItem key={brand.codigo} value={brand.codigo}>
+                          {brand.nome}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </div>
 
-        <div className="flex gap-4">
+          <FormField
+            control={form.control}
+            name="model"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Modelo</FormLabel>
+                <Select 
+                  disabled={!selectedBrand || loadingModels} 
+                  onValueChange={handleModelChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!selectedBrand ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {loadingModels ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <span>Carregando...</span>
+                        </div>
+                      </SelectItem>
+                    ) : (
+                      models.map((model) => (
+                        <SelectItem key={model.codigo} value={model.codigo}>
+                          {model.nome}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="year"
             render={({ field }) => (
-              <FormItem className="flex-1">
+              <FormItem>
                 <FormLabel>Ano</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Ex: 2022" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="renavam"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Renavam</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Opcional" />
-                </FormControl>
+                <Select 
+                  disabled={!selectedModel || loadingYears} 
+                  onValueChange={handleYearChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder={!selectedModel ? "Selecione um modelo primeiro" : "Selecione o ano"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {loadingYears ? (
+                      <SelectItem value="loading" disabled>
+                        <div className="flex items-center">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <span>Carregando...</span>
+                        </div>
+                      </SelectItem>
+                    ) : (
+                      years.map((year) => (
+                        <SelectItem key={year.codigo} value={year.codigo}>
+                          {year.nome}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="renavam"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Renavam</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="Opcional" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
