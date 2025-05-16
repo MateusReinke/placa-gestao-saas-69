@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -294,7 +293,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         clientId: isClient ? user?.id || '' : data.clientId,
         licensePlate: data.licensePlate,
         notes: data.observations || '',
-        estimatedDeliveryDate: data.expectedDeliveryDate,
+        estimatedDeliveryDate: data.expectedDeliveryDate ? format(data.expectedDeliveryDate, 'yyyy-MM-dd') : undefined,
         statusId: statusToUse || '',
         value: 0, // Default value as required by the type
         createdBy: user?.id || '', // Required by the type
