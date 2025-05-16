@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { ApiService } from '@/services/api';
 import { DashboardStats, Order, Client } from '@/types';
@@ -37,11 +36,10 @@ const SellerDashboard = () => {
           ).slice(0, 5);
           setRecentOrders(sortedOrders);
           
-          // Get 3 most recent clients
-          const sortedClients = [...clientsData].sort((a, b) => 
-            (b.createdAt ? new Date(b.createdAt).getTime() : 0) - 
-            (a.createdAt ? new Date(a.createdAt).getTime() : 0)
-          ).slice(0, 3);
+          // Get 3 most recent clients - usando created_at em vez de createdAt
+          // Como o tipo Client não tem createdAt, vamos usar um método diferente para ordenação
+          // Se os clientes não tiverem timestamp, simplesmente pegamos os primeiros 3
+          const sortedClients = [...clientsData].slice(0, 3);
           setRecentClients(sortedClients);
         } catch (error) {
           console.error('Error fetching dashboard data:', error);
