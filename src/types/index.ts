@@ -46,6 +46,16 @@ export interface OrderStatus {
   active: boolean;
 }
 
+export interface Vehicle {
+  id: string;
+  licensePlate: string;
+  brand: string;
+  model: string;
+  year: string;
+  color?: string;
+  clientId: string;
+}
+
 export interface Order {
   id: string;
   clientId: string;
@@ -57,8 +67,11 @@ export interface Order {
   statusId: string;
   status?: OrderStatus;
   licensePlate: string;
+  vehicle?: Vehicle;
   value: number;
   createdAt: string;
+  estimatedDeliveryDate?: string;
+  notes?: string;
 }
 
 export interface DashboardStats {
