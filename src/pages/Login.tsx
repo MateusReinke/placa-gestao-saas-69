@@ -11,18 +11,32 @@ const Login = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
-  const { login, loading, isAuthenticated } = useAuth();
+  const { login, loading, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Check if user is already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('[Login] User is already authenticated, redirecting to dashboard');
-      const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
+    if (isAuthenticated && user) {
+      console.log('[Login] User is already authenticated, redirecting based on role:', user.role);
+      
+      // Redirect based on user role
+      switch (user.role) {
+        case 'admin':
+          navigate('/admin/dashboard', { replace: true });
+          break;
+        case 'seller':
+          navigate('/seller/dashboard', { replace: true });
+          break;
+        case 'physical':
+        case 'juridical':
+          navigate('/client/dashboard', { replace: true });
+          break;
+        default:
+          navigate('/client/dashboard', { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

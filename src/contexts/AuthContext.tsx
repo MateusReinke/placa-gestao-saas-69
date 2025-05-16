@@ -85,28 +85,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   useEffect(() => {
     // Check for saved token on mount
-    const savedToken = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('auth_user');
-    
-    logAuthState('Checking for existing auth data', { savedToken: !!savedToken, savedUser: !!savedUser, path: location.pathname });
-    
-    if (savedToken && savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
-        setToken(savedToken);
-        setUser(parsedUser);
-        logAuthState('User authenticated from localStorage', { userId: parsedUser.id, role: parsedUser.role });
-      } catch (e) {
-        logAuthState('Error parsing saved user data', e);
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
+    const checkAuth = async () => {
+      setLoading(true);
+      const savedToken = localStorage.getItem('auth_token');
+      const savedUser = localStorage.getItem('auth_user');
+      
+      logAuthState('Checking for existing auth data', { 
+        savedToken: !!savedToken, 
+        savedUser: !!savedUser, 
+        path: location.pathname 
+      });
+      
+      if (savedToken && savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          setToken(savedToken);
+          setUser(parsedUser);
+          logAuthState('User authenticated from localStorage', { userId: parsedUser.id, role: parsedUser.role });
+        } catch (e) {
+          logAuthState('Error parsing saved user data', e);
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        }
+      } else {
+        logAuthState('No saved authentication found');
       }
-    } else {
-      logAuthState('No saved authentication found');
+      
+      setLoading(false);
+    };
+    
+    checkAuth();
+  }, []);
+  
+  const redirectBasedOnRole = (userRole: UserRole) => {
+    const from = location.state?.from?.pathname;
+    
+    if (from && from !== '/login') {
+      logAuthState('Redirecting to originally requested page', from);
+      navigate(from, { replace: true });
+      return;
     }
     
-    setLoading(false);
-  }, [location.pathname]);
+    // Default redirects based on user role
+    switch (userRole) {
+      case 'admin':
+        logAuthState('Redirecting admin to admin dashboard');
+        navigate('/admin/dashboard', { replace: true });
+        break;
+      case 'seller':
+        logAuthState('Redirecting seller to seller dashboard');
+        navigate('/seller/dashboard', { replace: true });
+        break;
+      case 'physical':
+      case 'juridical':
+        logAuthState('Redirecting client to client dashboard');
+        navigate('/client/dashboard', { replace: true });
+        break;
+      default:
+        logAuthState('Role not recognized, redirecting to generic dashboard');
+        navigate('/client/dashboard', { replace: true });
+    }
+  };
   
   const login = async (email: string, password: string) => {
     setLoading(true);
@@ -126,10 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logAuthState('Login successful', { userId: result.user.id, role: result.user.role });
         toast.success('Login realizado com sucesso!');
         
-        // Get the intended destination or default to dashboard
-        const from = location.state?.from?.pathname || '/dashboard';
-        logAuthState('Redirecting after login to', from);
-        navigate(from, { replace: true });
+        // Redirect based on user role
+        redirectBasedOnRole(result.user.role);
       } else {
         logAuthState('Login failed - Invalid credentials');
         toast.error('Credenciais inválidas');
