@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
 
 const SupabaseInitializer = () => {
   const [initialized, setInitialized] = useState(false);
@@ -38,8 +39,8 @@ const SupabaseInitializer = () => {
         return;
       }
       
-      // Filtrar usuários pelo email manualmente
-      const existingUsers = data?.users.filter(user => user.email === email) || [];
+      // Filtrar usuários pelo email manualmente com tipagem correta
+      const existingUsers = data?.users.filter((user: User) => user.email === email) || [];
       
       let userId;
       
