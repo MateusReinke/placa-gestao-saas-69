@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
@@ -79,6 +80,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           roles: ['admin'],
         },
         {
+          icon: Car,
+          name: 'Veículos',
+          href: '/admin/vehicles',
+          roles: ['admin'],
+        },
+        {
           icon: UserPlus,
           name: 'Vendedores',
           href: '/admin/sellers',
@@ -118,6 +125,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           icon: Users,
           name: 'Clientes',
           href: '/seller/clients',
+          roles: ['seller'],
+        },
+        {
+          icon: Car,
+          name: 'Veículos',
+          href: '/seller/vehicles',
           roles: ['seller'],
         },
         {

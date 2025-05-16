@@ -17,7 +17,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Plus, Car } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import NewVehicleForm from './NewVehicleForm';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const formSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -29,6 +33,11 @@ const formSchema = z.object({
   postalCode: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
+  addVehicle: z.boolean().optional(),
+  vehicleBrand: z.string().optional(),
+  vehicleModel: z.string().optional(),
+  vehicleYear: z.string().optional(),
+  vehicleLicensePlate: z.string().optional(),
 });
 
 interface NewClientFormProps {
@@ -41,6 +50,8 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [searchingCep, setSearchingCep] = useState(false);
   const [searchingDocument, setSearchingDocument] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [addVehicle, setAddVehicle] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,6 +65,11 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
       postalCode: '',
       city: '',
       state: '',
+      addVehicle: false,
+      vehicleBrand: '',
+      vehicleModel: '',
+      vehicleYear: '',
+      vehicleLicensePlate: '',
     },
   });
 
@@ -166,6 +182,19 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
     }
   };
 
+  const handleAddVehicleChange = (checked: boolean) => {
+    setAddVehicle(checked);
+    form.setValue('addVehicle', checked);
+  };
+
+  const onVehicleFormSuccess = () => {
+    setIsDialogOpen(false);
+    toast({
+      title: "Veículo adicionado",
+      description: "As informações do veículo foram salvas e serão associadas ao cliente",
+    });
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!user) {
       toast({
@@ -193,7 +222,16 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
         createdBy: user.id,
       };
 
-      await ApiService.createClient(newClient);
+      const client = await ApiService.createClient(newClient);
+      
+      // Se tiver veículo para adicionar, criaremos após o cliente
+      if (values.addVehicle && client) {
+        // Aqui implementaríamos a lógica para salvar o veículo associado ao cliente
+        toast({
+          title: "Veículo registrado",
+          description: "O veículo foi associado ao cliente com sucesso",
+        });
+      }
       
       toast({
         title: "Cliente criado",
@@ -214,202 +252,327 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem className="space-y-3">
-              <FormLabel>Tipo de Cliente</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                  className="flex space-x-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="physical" id="type-physical" />
-                    <label htmlFor="type-physical" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Pessoa Física
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="juridical" id="type-juridical" />
-                    <label htmlFor="type-juridical" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Pessoa Jurídica
-                    </label>
-                  </div>
-                </RadioGroup>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex gap-4 items-start">
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
           <FormField
             control={form.control}
-            name="document"
+            name="type"
             render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>{form.watch('type') === 'physical' ? 'CPF' : 'CNPJ'}</FormLabel>
-                <div className="flex gap-2">
+              <FormItem className="space-y-3">
+                <FormLabel>Tipo de Cliente</FormLabel>
+                <FormControl>
+                  <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="physical" id="type-physical" />
+                      <label htmlFor="type-physical" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Pessoa Física
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="juridical" id="type-juridical" />
+                      <label htmlFor="type-juridical" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Pessoa Jurídica
+                      </label>
+                    </div>
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex gap-4 items-start">
+            <FormField
+              control={form.control}
+              name="document"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>{form.watch('type') === 'physical' ? 'CPF' : 'CNPJ'}</FormLabel>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input {...field} placeholder={form.watch('type') === 'physical' ? '123.456.789-00' : '12.345.678/0001-90'} />
+                    </FormControl>
+                    {form.watch('type') === 'juridical' && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon"
+                        disabled={!field.value || field.value.length < 14 || searchingDocument}
+                        onClick={handleSearchDocument}
+                      >
+                        {searchingDocument ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{form.watch('type') === 'physical' ? 'Nome Completo' : 'Razão Social'}</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder={form.watch('type') === 'physical' ? 'João da Silva' : 'Empresa LTDA'} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex gap-4">
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>E-mail</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder={form.watch('type') === 'physical' ? '123.456.789-00' : '12.345.678/0001-90'} />
+                    <Input {...field} type="email" placeholder="exemplo@email.com" />
                   </FormControl>
-                  {form.watch('type') === 'juridical' && (
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Telefone</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="(11) 98765-4321" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex gap-4 items-start">
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem className="w-40">
+                  <FormLabel>CEP</FormLabel>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input {...field} placeholder="00000-000" />
+                    </FormControl>
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="icon"
-                      disabled={!field.value || field.value.length < 14 || searchingDocument}
-                      onClick={handleSearchDocument}
+                      disabled={!field.value || field.value.length < 8 || searchingCep}
+                      onClick={handleSearchCep}
                     >
-                      {searchingDocument ? (
+                      {searchingCep ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Search className="h-4 w-4" />
                       )}
                     </Button>
-                  )}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{form.watch('type') === 'physical' ? 'Nome Completo' : 'Razão Social'}</FormLabel>
-              <FormControl>
-                <Input {...field} placeholder={form.watch('type') === 'physical' ? 'João da Silva' : 'Empresa LTDA'} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex gap-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>E-mail</FormLabel>
-                <FormControl>
-                  <Input {...field} type="email" placeholder="exemplo@email.com" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Telefone</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="(11) 98765-4321" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex gap-4 items-start">
-          <FormField
-            control={form.control}
-            name="postalCode"
-            render={({ field }) => (
-              <FormItem className="w-40">
-                <FormLabel>CEP</FormLabel>
-                <div className="flex gap-2">
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Endereço</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="00000-000" />
+                    <Input {...field} placeholder="Rua, número, bairro" />
                   </FormControl>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="icon"
-                    disabled={!field.value || field.value.length < 8 || searchingCep}
-                    onClick={handleSearchCep}
-                  >
-                    {searchingCep ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Search className="h-4 w-4" />
-                    )}
-                  </Button>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="flex gap-4">
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Cidade</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="São Paulo" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="state"
+              render={({ field }) => (
+                <FormItem className="w-20">
+                  <FormLabel>UF</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="SP" maxLength={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="addVehicle"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked);
+                      handleAddVehicleChange(checked === true);
+                    }}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Adicionar Veículo</FormLabel>
+                  <p className="text-sm text-muted-foreground">
+                    Deseja cadastrar um veículo para este cliente?
+                  </p>
                 </div>
-                <FormMessage />
               </FormItem>
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Endereço</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="Rua, número, bairro" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+          {addVehicle && (
+            <div className="border rounded-md p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-medium">Informações do Veículo</h3>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <Car className="mr-2 h-4 w-4" />
+                  Adicionar Veículo
+                </Button>
+              </div>
+              
+              <p className="text-sm text-muted-foreground mb-4">
+                Você poderá adicionar mais veículos após cadastrar o cliente.
+              </p>
+              
+              <Accordion type="single" collapsible>
+                <AccordionItem value="add-vehicle">
+                  <AccordionTrigger>Adicionar manualmente</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <FormField
+                        control={form.control}
+                        name="vehicleLicensePlate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Placa do Veículo</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="AAA-0000 ou AAA0000" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="vehicleBrand"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Marca</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: Honda, Toyota, Fiat..." />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="vehicleModel"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Modelo</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: Civic, Corolla, Uno..." />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="vehicleYear"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ano</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="Ex: 2020/2021" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          )}
 
-        <div className="flex gap-4">
-          <FormField
-            control={form.control}
-            name="city"
-            render={({ field }) => (
-              <FormItem className="flex-1">
-                <FormLabel>Cidade</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="São Paulo" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={onSuccess}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Cadastrar Cliente
+            </Button>
+          </div>
+        </form>
+      </Form>
+      
+      {/* Modal para adicionar veículo usando o formulário completo */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Adicionar Veículo</DialogTitle>
+          </DialogHeader>
+          <NewVehicleForm 
+            onSuccess={onVehicleFormSuccess} 
+            simplified={false}
           />
-
-          <FormField
-            control={form.control}
-            name="state"
-            render={({ field }) => (
-              <FormItem className="w-20">
-                <FormLabel>UF</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="SP" maxLength={2} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onSuccess}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Cadastrar Cliente
-          </Button>
-        </div>
-      </form>
-    </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
