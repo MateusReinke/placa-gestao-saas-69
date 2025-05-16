@@ -44,8 +44,9 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
         if (response.ok) {
           const data = await response.json();
           // Ensure we're setting an array, even if empty
-          setModels(Array.isArray(data.modelos) ? data.modelos : []);
-          console.log("Modelos carregados:", Array.isArray(data.modelos) ? data.modelos.length : 0);
+          const modelosArray = data && data.modelos ? data.modelos : [];
+          setModels(Array.isArray(modelosArray) ? modelosArray : []);
+          console.log("Modelos carregados:", modelosArray.length);
         } else {
           console.error('Erro ao buscar modelos:', response.statusText);
           setError("Não foi possível carregar os modelos para esta marca.");
@@ -73,15 +74,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
   // Handler for model selection with safeguards
   const handleModelChange = (value: string) => {
     try {
-      console.log("Modelo selecionado código:", value);
+      // First close the popover to prevent rendering issues
+      setOpen(false);
+
       // Find the model in the models array, with a fallback if not found
-      const selectedModelObj = models.find(model => model.codigo === value);
+      const selectedModelObj = safeModels.find(model => model.codigo === value);
       const selectedModelName = selectedModelObj?.nome || '';
       console.log("Nome do modelo:", selectedModelName);
       
       form.setValue('model', selectedModelName);
-      // Close the popover first to prevent rendering issues
-      setOpen(false);
       
       // Call the onModelSelect callback with a delay to allow UI to update first
       setTimeout(() => {
@@ -92,7 +93,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
     } catch (error) {
       console.error("Erro ao selecionar modelo:", error);
       setError("Erro ao selecionar modelo. Tente novamente.");
-      setOpen(false); // Always close popover on error
     }
   };
 

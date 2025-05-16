@@ -66,15 +66,16 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
   // Handler for brand selection with safeguards
   const handleBrandChange = (value: string) => {
     try {
-      console.log("Marca selecionada código:", value);
       // Find the brand in the brands array, with a fallback if not found
-      const selectedBrandObj = brands.find(brand => brand.codigo === value);
+      const selectedBrandObj = safeBrands.find(brand => brand.codigo === value);
       const selectedBrandName = selectedBrandObj?.nome || '';
       console.log("Nome da marca:", selectedBrandName);
       
-      form.setValue('brand', selectedBrandName);
-      // Close the popover first to prevent rendering issues
+      // First close the popover to prevent rendering issues
       setOpen(false);
+      
+      // Then update form value
+      form.setValue('brand', selectedBrandName);
       
       // Call the onBrandSelect callback with a delay to allow UI to update first
       setTimeout(() => {

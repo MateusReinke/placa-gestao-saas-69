@@ -72,19 +72,18 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
   // Handler for year selection with safeguards
   const handleYearChange = (value: string) => {
     try {
-      console.log("Ano selecionado código:", value);
+      // First close the popover to prevent rendering issues
+      setOpen(false);
+
       // Find the year in the years array, with a fallback if not found
-      const selectedYearObj = years.find(year => year.codigo === value);
+      const selectedYearObj = safeYears.find(year => year.codigo === value);
       const yearName = selectedYearObj?.nome || '';
       console.log("Ano:", yearName);
       
       form.setValue('year', yearName);
-      // Close the popover first to prevent rendering issues
-      setOpen(false);
     } catch (error) {
       console.error("Erro ao selecionar ano:", error);
       setError("Erro ao selecionar ano. Tente novamente.");
-      setOpen(false); // Always close popover on error
     }
   };
 
