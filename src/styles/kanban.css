@@ -1,0 +1,31 @@
+
+/* Kanban column styling */
+.kanban-column {
+  width: 280px;
+  height: 500px;
+  background-color: hsl(var(--secondary));
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  margin-right: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Card styling within the kanban */
+.kanban-card {
+  margin: 0 8px 8px 8px;
+  background: hsl(var(--card));
+  transition: background-color 0.2s ease;
+}
+
+.kanban-card:hover {
+  background: hsl(var(--accent));
+}
+
+/* Make sure the inner content is scrollable */
+.kanban-column > div:nth-child(2) {
+  overflow-y: auto;
+  min-height: 100px;
+  max-height: calc(100% - 40px);
+  padding-top: 4px;
+}
