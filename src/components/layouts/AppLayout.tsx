@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
@@ -13,7 +12,10 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Menu
+  Menu,
+  Box,
+  Car,
+  Archive
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,84 +49,114 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   // Menu items based on user role
   const getMenuItems = () => {
-    // Common menu items for all users
-    const items = [
-      {
-        icon: LayoutDashboard,
-        name: 'Dashboard',
-        href: '/dashboard',
-        roles: ['admin', 'seller', 'physical', 'juridical'],
-      },
-    ];
+    const items = [];
 
-    // Admin can see everything
+    // Admin menu items
     if (user?.role === 'admin') {
       items.push(
         {
+          icon: LayoutDashboard,
+          name: 'Dashboard',
+          href: '/admin/dashboard',
+          roles: ['admin'],
+        },
+        {
+          icon: Archive,
+          name: 'Serviços',
+          href: '/admin/services',
+          roles: ['admin'],
+        },
+        {
+          icon: ClipboardList,
+          name: 'Pedidos',
+          href: '/admin/orders',
+          roles: ['admin'],
+        },
+        {
           icon: Users,
           name: 'Clientes',
-          href: '/clients',
-          roles: ['admin', 'seller'],
+          href: '/admin/clients',
+          roles: ['admin'],
         },
         {
           icon: UserPlus,
           name: 'Vendedores',
-          href: '/sellers',
+          href: '/admin/sellers',
           roles: ['admin'],
         },
         {
-          icon: ClipboardList,
-          name: 'Pedidos',
-          href: '/orders',
-          roles: ['admin', 'seller', 'physical', 'juridical'],
-        },
-        {
-          icon: Kanban,
-          name: 'Kanban',
-          href: '/kanban',
-          roles: ['admin', 'seller'],
+          icon: Box,
+          name: 'Estoque',
+          href: '/admin/inventory',
+          roles: ['admin'],
         },
         {
           icon: Settings,
           name: 'Configurações',
-          href: '/settings',
+          href: '/admin/settings',
           roles: ['admin'],
         }
       );
     }
 
-    // Seller can see clients, orders, kanban
+    // Seller menu items
     else if (user?.role === 'seller') {
       items.push(
         {
-          icon: Users,
-          name: 'Clientes',
-          href: '/clients',
-          roles: ['admin', 'seller'],
+          icon: LayoutDashboard,
+          name: 'Dashboard',
+          href: '/seller/dashboard',
+          roles: ['seller'],
         },
         {
           icon: ClipboardList,
           name: 'Pedidos',
-          href: '/orders',
-          roles: ['admin', 'seller', 'physical', 'juridical'],
+          href: '/seller/orders',
+          roles: ['seller'],
         },
         {
-          icon: Kanban,
-          name: 'Kanban',
-          href: '/kanban',
-          roles: ['admin', 'seller'],
+          icon: Users,
+          name: 'Clientes',
+          href: '/seller/clients',
+          roles: ['seller'],
+        },
+        {
+          icon: Box,
+          name: 'Estoque',
+          href: '/seller/inventory',
+          roles: ['seller'],
+        },
+        {
+          icon: Settings,
+          name: 'Configurações',
+          href: '/seller/settings',
+          roles: ['seller'],
         }
       );
     }
 
-    // Clients can only see orders
+    // Client menu items (physical or juridical)
     else if (user?.role === 'physical' || user?.role === 'juridical') {
-      items.push({
-        icon: ClipboardList,
-        name: 'Pedidos',
-        href: '/orders',
-        roles: ['admin', 'seller', 'physical', 'juridical'],
-      });
+      items.push(
+        {
+          icon: LayoutDashboard,
+          name: 'Dashboard',
+          href: '/client/dashboard',
+          roles: ['physical', 'juridical'],
+        },
+        {
+          icon: ClipboardList,
+          name: 'Pedidos',
+          href: '/client/orders',
+          roles: ['physical', 'juridical'],
+        },
+        {
+          icon: Car,
+          name: 'Veículos',
+          href: '/client/vehicles',
+          roles: ['physical', 'juridical'],
+        }
+      );
     }
 
     return items;
@@ -231,7 +263,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to="/profile" className="cursor-pointer">Perfil</Link>
+                <Link to={user?.role === 'admin' ? '/admin/settings' : 
+                          user?.role === 'seller' ? '/seller/settings' : 
+                          '/client/settings'} className="cursor-pointer">
+                  Perfil
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={logout}

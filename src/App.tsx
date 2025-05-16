@@ -9,15 +9,33 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Pages
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Kanban from "./pages/Kanban";
 import NotFound from "./pages/NotFound";
+
+// Admin Pages
+import AdminDashboard from "./pages/admin/Dashboard";
+import AdminServices from "./pages/admin/Services";
+import AdminOrders from "./pages/admin/Orders";
+import AdminClients from "./pages/admin/Clients";
+import AdminSellers from "./pages/admin/Sellers";
+import AdminInventory from "./pages/admin/Inventory";
+import AdminSettings from "./pages/admin/Settings";
+
+// Seller Pages
+import SellerDashboard from "./pages/vendedor/Dashboard";
+import SellerOrders from "./pages/vendedor/Orders";
+import SellerClients from "./pages/vendedor/Clients";
+import SellerInventory from "./pages/vendedor/Inventory";
+import SellerSettings from "./pages/vendedor/Settings";
+
+// Client Pages
+import ClientDashboard from "./pages/clientes/Dashboard";
+import ClientOrders from "./pages/clientes/Orders";
+import ClientVehicles from "./pages/clientes/Vehicles";
 
 // Create a query client
 const queryClient = new QueryClient();
 
 const App = () => (
-  // Important: BrowserRouter must be the outermost router wrapper
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -28,49 +46,98 @@ const App = () => (
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             
-            {/* Protected Routes - Admin Only */}
-            <Route path="/settings" element={
+            {/* Admin Routes */}
+            <Route path="/admin/dashboard" element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <div>Settings Page - Under Construction</div>
+                <AdminDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/sellers" element={
+            <Route path="/admin/services" element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <div>Sellers Page - Under Construction</div>
+                <AdminServices />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/orders" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminOrders />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/clients" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminClients />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/sellers" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminSellers />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/inventory" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminInventory />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/settings" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminSettings />
               </ProtectedRoute>
             } />
             
-            {/* Protected Routes - Admin and Seller */}
-            <Route path="/kanban" element={
+            {/* Seller Routes */}
+            <Route path="/seller/dashboard" element={
               <ProtectedRoute allowedRoles={['admin', 'seller']}>
-                <Kanban />
+                <SellerDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/clients" element={
+            <Route path="/seller/orders" element={
               <ProtectedRoute allowedRoles={['admin', 'seller']}>
-                <div>Clients Page - Under Construction</div>
+                <SellerOrders />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/clients" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller']}>
+                <SellerClients />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/inventory" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller']}>
+                <SellerInventory />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/settings" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller']}>
+                <SellerSettings />
               </ProtectedRoute>
             } />
             
-            {/* Protected Routes - All authenticated users */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
+            {/* Client Routes */}
+            <Route path="/client/dashboard" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller', 'physical', 'juridical']}>
+                <ClientDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <div>Orders Page - Under Construction</div>
+            <Route path="/client/orders" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller', 'physical', 'juridical']}>
+                <ClientOrders />
               </ProtectedRoute>
             } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <div>Profile Page - Under Construction</div>
+            <Route path="/client/vehicles" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller', 'physical', 'juridical']}>
+                <ClientVehicles />
               </ProtectedRoute>
             } />
             
-            {/* Redirect root to dashboard if authenticated, otherwise to login */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* Legacy Routes - Redirect to new structure */}
+            <Route path="/dashboard" element={<Navigate to="/client/dashboard" replace />} />
+            <Route path="/orders" element={<Navigate to="/client/orders" replace />} />
+            <Route path="/kanban" element={<Navigate to="/seller/orders" replace />} />
+            <Route path="/clients" element={<Navigate to="/seller/clients" replace />} />
+            <Route path="/sellers" element={<Navigate to="/admin/sellers" replace />} />
+            <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="/profile" element={<Navigate to="/client/settings" replace />} />
+            
+            {/* Redirect root based on role */}
+            <Route path="/" element={<Navigate to="/client/dashboard" replace />} />
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />
