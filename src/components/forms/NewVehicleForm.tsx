@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 
 const formSchema = z.object({
   licensePlate: z.string().min(7, "Placa inválida").max(8, "Placa inválida"),
