@@ -11,8 +11,12 @@ const Index = () => {
   useEffect(() => {
     if (loading) return;
     
+    console.log('Index: Auth state -', { isAuthenticated, user, loading });
+    
     // Redirect based on authentication status
     if (isAuthenticated && user) {
+      console.log('Index: Redirecting authenticated user with role:', user.role);
+      
       // Redirect based on user role
       switch (user.role) {
         case 'admin':
@@ -26,9 +30,11 @@ const Index = () => {
           navigate('/client/dashboard', { replace: true });
           break;
         default:
+          console.log('Index: Unknown role, redirecting to client dashboard');
           navigate('/client/dashboard', { replace: true });
       }
     } else {
+      console.log('Index: User not authenticated, redirecting to login');
       navigate('/login', { replace: true });
     }
   }, [navigate, isAuthenticated, user, loading]);
