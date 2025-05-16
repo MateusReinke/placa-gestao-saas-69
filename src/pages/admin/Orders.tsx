@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
-import { PlusCircle, Search, MoreVertical, Filter } from 'lucide-react';
+import { PlusCircle, Search, MoreVertical, Filter, FileText, Calendar, User, Car } from 'lucide-react';
 import AppLayout from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import NewOrderForm from '@/components/forms/NewOrderForm';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -61,6 +62,18 @@ const AdminOrders = () => {
     
     fetchData();
   }, [toast, user?.id, user?.role]);
+
+  // Handle success after creating new order
+  const handleOrderCreationSuccess = (newOrder?: Order) => {
+    setIsDialogOpen(false);
+    if (newOrder) {
+      setOrders(prevOrders => [newOrder, ...prevOrders]);
+    }
+    toast({
+      title: "Sucesso",
+      description: "Pedido criado com sucesso",
+    });
+  };
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -233,15 +246,16 @@ const AdminOrders = () => {
                           <Draggable key={order.id} draggableId={order.id} index={index}>
                             {(provided) => (
                               <Card 
-                                className="kanban-card mb-3" 
+                                className="kanban-card mb-3 hover:shadow-md transition-all" 
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                               >
                                 <CardHeader className="p-3 pb-0">
                                   <div className="flex justify-between items-start">
-                                    <div className="font-medium">
-                                      {order.client?.name || 'Cliente'}
+                                    <div className="font-medium flex items-center gap-1">
+                                      <User className="h-3.5 w-3.5" />
+                                      <span>{order.client?.name || 'Cliente'}</span>
                                     </div>
                                     <div className="text-xs bg-gray-100 px-2 py-1 rounded-full">
                                       #{order.id.substring(0, 5)}
@@ -269,14 +283,25 @@ const AdminOrders = () => {
                                   </div>
                                 </CardHeader>
                                 <CardContent className="p-3 pt-1">
-                                  <div className="text-sm text-muted-foreground">
-                                    {order.serviceType?.name || 'Serviço'}
+                                  <div className="text-sm flex items-center gap-1 mb-1">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    <span className="text-muted-foreground">{order.serviceType?.name || 'Serviço'}</span>
                                   </div>
-                                  <div className="text-sm">
-                                    Placa: <span className="font-medium">{order.licensePlate}</span>
+                                  <div className="text-sm flex items-center gap-1 mb-1">
+                                    <Car className="h-3.5 w-3.5" />
+                                    <span className="font-medium">{order.licensePlate}</span>
                                   </div>
+                                  {order.value && (
+                                    <div className="text-sm font-medium mt-2 bg-primary/10 text-primary rounded-md px-2 py-0.5 inline-block">
+                                      {new Intl.NumberFormat('pt-BR', { 
+                                        style: 'currency', 
+                                        currency: 'BRL' 
+                                      }).format(order.value)}
+                                    </div>
+                                  )}
                                 </CardContent>
-                                <CardFooter className="p-3 pt-0 text-xs text-muted-foreground">
+                                <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-3.5 w-3.5" />
                                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                                 </CardFooter>
                               </Card>
@@ -313,7 +338,7 @@ const AdminOrders = () => {
             <tbody className="bg-card divide-y divide-border">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map(order => (
-                  <tr key={order.id}>
+                  <tr key={order.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap font-medium">#{order.id.substring(0, 5)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{order.client?.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap">{order.serviceType?.name}</td>
@@ -378,7 +403,7 @@ const AdminOrders = () => {
               <DialogHeader>
                 <DialogTitle>Adicionar Novo Pedido</DialogTitle>
               </DialogHeader>
-              {/* Aqui seria incluído o formulário de criação de pedidos */}
+              <NewOrderForm onSuccess={handleOrderCreationSuccess} />
             </DialogContent>
           </Dialog>
         </div>
