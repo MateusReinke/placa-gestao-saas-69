@@ -116,7 +116,8 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         const response = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas');
         if (response.ok) {
           const data = await response.json();
-          setBrands(data);
+          // Ensure we're setting an array, even if empty
+          setBrands(Array.isArray(data) ? data : []);
           console.log("Marcas carregadas:", data.length);
         } else {
           console.error('Erro ao buscar marcas:', response.statusText);
@@ -126,10 +127,14 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
             description: "Não foi possível carregar as marcas de veículos.",
             variant: "destructive",
           });
+          // Set empty array to prevent undefined
+          setBrands([]);
         }
       } catch (error) {
         console.error('Erro ao buscar marcas:', error);
         setError("Erro ao carregar marcas. Tente novamente.");
+        // Set empty array to prevent undefined
+        setBrands([]);
       } finally {
         setLoadingBrands(false);
       }
@@ -143,8 +148,8 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
     if (!brandCode) return;
     
     setLoadingModels(true);
-    setModels([]);
-    setYears([]);
+    setModels([]); // Initialize with empty array
+    setYears([]);  // Initialize with empty array
     form.setValue('model', '');
     form.setValue('year', '');
     setError(null);
@@ -154,8 +159,9 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
       const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos`);
       if (response.ok) {
         const data = await response.json();
-        setModels(data.modelos);
-        console.log("Modelos carregados:", data.modelos.length);
+        // Ensure we're setting an array, even if empty
+        setModels(Array.isArray(data.modelos) ? data.modelos : []);
+        console.log("Modelos carregados:", Array.isArray(data.modelos) ? data.modelos.length : 0);
       } else {
         console.error('Erro ao buscar modelos:', response.statusText);
         setError("Não foi possível carregar os modelos para esta marca.");
@@ -164,10 +170,14 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
           description: "Não foi possível carregar os modelos.",
           variant: "destructive",
         });
+        // Set empty array to prevent undefined
+        setModels([]);
       }
     } catch (error) {
       console.error('Erro ao buscar modelos:', error);
       setError("Erro ao carregar modelos. Tente novamente.");
+      // Set empty array to prevent undefined
+      setModels([]);
     } finally {
       setLoadingModels(false);
     }
@@ -178,7 +188,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
     if (!brandCode || !modelCode) return;
     
     setLoadingYears(true);
-    setYears([]);
+    setYears([]); // Initialize with empty array
     form.setValue('year', '');
     setError(null);
     
@@ -187,8 +197,9 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
       const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos/${modelCode}/anos`);
       if (response.ok) {
         const data = await response.json();
-        setYears(data);
-        console.log("Anos carregados:", data.length);
+        // Ensure we're setting an array, even if empty
+        setYears(Array.isArray(data) ? data : []);
+        console.log("Anos carregados:", Array.isArray(data) ? data.length : 0);
       } else {
         console.error('Erro ao buscar anos:', response.statusText);
         setError("Não foi possível carregar os anos disponíveis para este modelo.");
@@ -197,62 +208,89 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
           description: "Não foi possível carregar os anos disponíveis.",
           variant: "destructive",
         });
+        // Set empty array to prevent undefined
+        setYears([]);
       }
     } catch (error) {
       console.error('Erro ao buscar anos:', error);
       setError("Erro ao carregar anos. Tente novamente.");
+      // Set empty array to prevent undefined
+      setYears([]);
     } finally {
       setLoadingYears(false);
     }
   };
 
-  // Handler for brand selection - fixed to avoid the page getting stuck
+  // Handler for brand selection with safeguards
   const handleBrandChange = (value: string) => {
     try {
       console.log("Marca selecionada código:", value);
-      const selectedBrandName = brands.find(brand => brand.codigo === value)?.nome || '';
+      // Find the brand in the brands array, with a fallback if not found
+      const selectedBrandObj = brands.find(brand => brand.codigo === value);
+      const selectedBrandName = selectedBrandObj?.nome || '';
       console.log("Nome da marca:", selectedBrandName);
+      
       form.setValue('brand', selectedBrandName);
       setSelectedBrand(value);
-      setOpenBrand(false); // Close the popover after selection
-      // Fetch models in a slight delay to make sure the UI updates first
-      setTimeout(() => fetchModels(value), 100);
+      // Close the popover first to prevent rendering issues
+      setOpenBrand(false);
+      
+      // Fetch models with a delay to allow UI to update first
+      setTimeout(() => {
+        if (value) {
+          fetchModels(value);
+        }
+      }, 100);
     } catch (error) {
       console.error("Erro ao selecionar marca:", error);
       setError("Erro ao selecionar marca. Tente novamente.");
+      setOpenBrand(false); // Always close popover on error
     }
   };
 
-  // Handler for model selection - fixed to avoid the page getting stuck
+  // Handler for model selection with safeguards
   const handleModelChange = (value: string) => {
     try {
       console.log("Modelo selecionado código:", value);
-      const selectedModelName = models.find(model => model.codigo === value)?.nome || '';
+      // Find the model in the models array, with a fallback if not found
+      const selectedModelObj = models.find(model => model.codigo === value);
+      const selectedModelName = selectedModelObj?.nome || '';
       console.log("Nome do modelo:", selectedModelName);
+      
       form.setValue('model', selectedModelName);
       setSelectedModel(value);
-      setOpenModel(false); // Close the popover after selection
-      // Fetch years in a slight delay to make sure the UI updates first
-      if (selectedBrand) {
-        setTimeout(() => fetchYears(selectedBrand, value), 100);
-      }
+      // Close the popover first to prevent rendering issues
+      setOpenModel(false);
+      
+      // Fetch years with a delay to allow UI to update first
+      setTimeout(() => {
+        if (selectedBrand && value) {
+          fetchYears(selectedBrand, value);
+        }
+      }, 100);
     } catch (error) {
       console.error("Erro ao selecionar modelo:", error);
       setError("Erro ao selecionar modelo. Tente novamente.");
+      setOpenModel(false); // Always close popover on error
     }
   };
 
-  // Handler for year selection - fixed to avoid the page getting stuck
+  // Handler for year selection with safeguards
   const handleYearChange = (value: string) => {
     try {
       console.log("Ano selecionado código:", value);
-      const yearName = years.find(year => year.codigo === value)?.nome || '';
+      // Find the year in the years array, with a fallback if not found
+      const selectedYearObj = years.find(year => year.codigo === value);
+      const yearName = selectedYearObj?.nome || '';
       console.log("Ano:", yearName);
+      
       form.setValue('year', yearName);
-      setOpenYear(false); // Close the popover after selection
+      // Close the popover first to prevent rendering issues
+      setOpenYear(false);
     } catch (error) {
       console.error("Erro ao selecionar ano:", error);
       setError("Erro ao selecionar ano. Tente novamente.");
+      setOpenYear(false); // Always close popover on error
     }
   };
 
@@ -357,21 +395,28 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                       <CommandInput placeholder="Pesquisar marca..." />
                       <CommandEmpty>Nenhuma marca encontrada.</CommandEmpty>
                       <CommandGroup className="max-h-60 overflow-y-auto">
-                        {brands.map((brand) => (
-                          <CommandItem
-                            key={brand.codigo}
-                            value={brand.nome}
-                            onSelect={() => handleBrandChange(brand.codigo)}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                field.value === brand.nome ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {brand.nome}
+                        {/* Ensure brands is always iterable */}
+                        {Array.isArray(brands) && brands.length > 0 ? (
+                          brands.map((brand) => (
+                            <CommandItem
+                              key={brand.codigo}
+                              value={brand.nome}
+                              onSelect={() => handleBrandChange(brand.codigo)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === brand.nome ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {brand.nome}
+                            </CommandItem>
+                          ))
+                        ) : (
+                          <CommandItem disabled>
+                            {loadingBrands ? "Carregando marcas..." : "Nenhuma marca disponível"}
                           </CommandItem>
-                        ))}
+                        )}
                       </CommandGroup>
                     </Command>
                   </PopoverContent>
@@ -422,21 +467,28 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                       />
                       <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
                       <CommandGroup className="max-h-60 overflow-y-auto">
-                        {filteredModels.map((model) => (
-                          <CommandItem
-                            key={model.codigo}
-                            value={model.nome}
-                            onSelect={() => handleModelChange(model.codigo)}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                field.value === model.nome ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {model.nome}
+                        {/* Ensure filteredModels is always iterable */}
+                        {Array.isArray(filteredModels) && filteredModels.length > 0 ? (
+                          filteredModels.map((model) => (
+                            <CommandItem
+                              key={model.codigo}
+                              value={model.nome}
+                              onSelect={() => handleModelChange(model.codigo)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === model.nome ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {model.nome}
+                            </CommandItem>
+                          ))
+                        ) : (
+                          <CommandItem disabled>
+                            {loadingModels ? "Carregando modelos..." : "Nenhum modelo disponível"}
                           </CommandItem>
-                        ))}
+                        )}
                       </CommandGroup>
                     </Command>
                   </PopoverContent>
@@ -483,21 +535,28 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                       <CommandInput placeholder="Pesquisar ano..." />
                       <CommandEmpty>Nenhum ano encontrado.</CommandEmpty>
                       <CommandGroup className="max-h-60 overflow-y-auto">
-                        {years.map((year) => (
-                          <CommandItem
-                            key={year.codigo}
-                            value={year.nome}
-                            onSelect={() => handleYearChange(year.codigo)}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                field.value === year.nome ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {year.nome}
+                        {/* Ensure years is always iterable */}
+                        {Array.isArray(years) && years.length > 0 ? (
+                          years.map((year) => (
+                            <CommandItem
+                              key={year.codigo}
+                              value={year.nome}
+                              onSelect={() => handleYearChange(year.codigo)}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === year.nome ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {year.nome}
+                            </CommandItem>
+                          ))
+                        ) : (
+                          <CommandItem disabled>
+                            {loadingYears ? "Carregando anos..." : "Nenhum ano disponível"}
                           </CommandItem>
-                        ))}
+                        )}
                       </CommandGroup>
                     </Command>
                   </PopoverContent>
