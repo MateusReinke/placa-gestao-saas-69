@@ -29,13 +29,15 @@ const SupabaseInitializer = () => {
   // Cria um usuário de demonstração
   const createDemoUser = async (email: string, password: string, userData: any) => {
     try {
-      // Verifica primeiro se o usuário já existe na autenticação
-      const { data: authUser } = await supabase.auth.admin.getUserByEmail(email);
+      // Verificar se o usuário já existe no sistema de autenticação
+      const { data: { users } } = await supabase.auth.admin.listUsers({
+        filter: `email.eq.${email}`
+      });
       
       let userId;
       
-      // Se o usuário não existe no sistema de autenticação
-      if (!authUser) {
+      // Se o usuário não existe no sistema de autenticação ou não foi encontrado
+      if (!users || users.length === 0) {
         // Cria o usuário no sistema de autenticação
         const { data: newUser, error: signupError } = await supabase.auth.admin.createUser({
           email,
@@ -50,7 +52,7 @@ const SupabaseInitializer = () => {
         
         userId = newUser.user.id;
       } else {
-        userId = authUser.user.id;
+        userId = users[0].id;
       }
       
       // Verifica se já existe um registro para este usuário na tabela users
