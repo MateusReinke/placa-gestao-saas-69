@@ -1,4 +1,3 @@
-
 import { 
   clients,
   sellers,
@@ -14,11 +13,52 @@ import {
   ServiceType, 
   Seller, 
   DashboardStats,
-  UserRole 
+  UserRole,
+  Vehicle 
 } from '@/types';
 
 // Helper to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Mock data for vehicles
+const vehicles: Vehicle[] = [
+  {
+    id: '1',
+    licensePlate: 'ABC1234',
+    brand: 'Toyota',
+    model: 'Corolla',
+    year: '2020',
+    color: 'Prata',
+    clientId: '1'
+  },
+  {
+    id: '2',
+    licensePlate: 'DEF5678',
+    brand: 'Honda',
+    model: 'Civic',
+    year: '2019',
+    color: 'Preto',
+    clientId: '2'
+  },
+  {
+    id: '3',
+    licensePlate: 'GHI9012',
+    brand: 'Volkswagen',
+    model: 'Golf',
+    year: '2021',
+    color: 'Branco',
+    clientId: '3'
+  },
+  {
+    id: '4',
+    licensePlate: 'JKL3456',
+    brand: 'Ford',
+    model: 'Focus',
+    year: '2018',
+    color: 'Azul',
+    clientId: '1'
+  }
+];
 
 // API Service class
 export class ApiService {
@@ -302,5 +342,50 @@ export class ApiService {
   static async getDashboardStats(userId: string, userRole: UserRole): Promise<DashboardStats> {
     await delay(800);
     return generateMockDashboardStats(userRole, userId);
+  }
+  
+  // Vehicles
+  static async getClientVehicles(clientId: string): Promise<Vehicle[]> {
+    await delay(300);
+    return vehicles.filter(vehicle => vehicle.clientId === clientId);
+  }
+  
+  static async createVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> {
+    await delay(300);
+    const newVehicle = {
+      ...vehicle,
+      id: (vehicles.length + 1).toString()
+    };
+    vehicles.push(newVehicle);
+    return newVehicle;
+  }
+  
+  static async getVehicleByLicensePlate(licensePlate: string): Promise<Vehicle | undefined> {
+    await delay(300);
+    return vehicles.find(vehicle => vehicle.licensePlate === licensePlate);
+  }
+  
+  static async updateVehicle(id: string, updatedVehicle: Partial<Vehicle>): Promise<Vehicle | undefined> {
+    await delay(300);
+    const index = vehicles.findIndex(vehicle => vehicle.id === id);
+    
+    if (index !== -1) {
+      vehicles[index] = { ...vehicles[index], ...updatedVehicle };
+      return vehicles[index];
+    }
+    
+    return undefined;
+  }
+  
+  static async deleteVehicle(id: string): Promise<boolean> {
+    await delay(300);
+    const index = vehicles.findIndex(vehicle => vehicle.id === id);
+    
+    if (index !== -1) {
+      vehicles.splice(index, 1);
+      return true;
+    }
+    
+    return false;
   }
 }

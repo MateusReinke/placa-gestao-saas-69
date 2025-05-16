@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,7 +63,7 @@ import {
   X, 
   Plus 
 } from 'lucide-react';
-import { ServiceType, Order, Client, Vehicle } from '@/types';
+import { ServiceType, Order, Client, Vehicle, OrderStatus } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -496,6 +495,16 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         clientData = selectedClient;
       }
 
+      // Find or create default status
+      const selectedStatus = statuses.find(s => s.id === (values.statusId || "1"));
+      const orderStatus: OrderStatus = selectedStatus || {
+        id: "1",
+        name: "Pendente",
+        color: "yellow",
+        order: 1,
+        active: true
+      };
+
       // Create order object
       const newOrder: Omit<Order, 'id' | 'createdAt'> = {
         clientId: clientData.id,
@@ -505,13 +514,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         licensePlate: values.licensePlate,
         createdBy: user.id,
         value: Math.random() * 500 + 100, // Simulated value
-        status: statuses.find(s => s.id === (values.statusId || "1")) || {
-          id: "1",
-          name: "Pendente",
-          color: "yellow",
-          active: true,
-          order: 1
-        },
+        status: orderStatus,
         client: clientData,
         notes: values.notes,
         estimatedDeliveryDate: values.estimatedDeliveryDate?.toISOString(),
