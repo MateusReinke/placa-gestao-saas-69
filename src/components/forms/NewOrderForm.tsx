@@ -101,7 +101,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
     const fetchData = async () => {
       try {
         const [fetchedServices, fetchedStatuses] = await Promise.all([
-          ApiService.getServices(),
+          ApiService.getServiceTypes(),
           ApiService.getOrderStatuses(),
         ]);
         
@@ -191,7 +191,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         document: newClientDocument,
         phone: newClientPhone,
         email: newClientEmail,
-        active: true,
+        createdBy: user?.id || '',
+        type: 'physical',
       });
       
       setClients(prevClients => [...prevClients, newClient]);
@@ -292,9 +293,11 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         serviceTypeId: data.serviceTypeId,
         clientId: isClient ? user?.id || '' : data.clientId,
         licensePlate: data.licensePlate,
-        observations: data.observations || '',
-        expectedDeliveryDate: data.expectedDeliveryDate,
+        notes: data.observations || '',
+        estimatedDeliveryDate: data.expectedDeliveryDate,
         statusId: statusToUse || '',
+        value: 0, // Default value as required by the type
+        createdBy: user?.id || '', // Required by the type
       };
       
       // Save order

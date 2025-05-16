@@ -1,4 +1,3 @@
-
 export type UserRole = 'admin' | 'seller' | 'physical' | 'juridical';
 
 export interface User {
@@ -20,6 +19,7 @@ export interface Client {
   phone?: string;
   email?: string;
   createdBy: string;
+  active?: boolean;
 }
 
 export interface Seller {
