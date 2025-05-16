@@ -96,8 +96,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
     }
   };
 
-  // Filter models based on search query
-  const filteredModels = models.filter(model => 
+  // Make sure models is always an array
+  const safeModels = Array.isArray(models) ? models : [];
+
+  // Filter models based on search query using the safe array
+  const filteredModels = safeModels.filter(model => 
     model.nome.toLowerCase().includes(searchModel.toLowerCase())
   );
 
@@ -142,8 +145,12 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
                 />
                 <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
                 <CommandGroup className="max-h-60 overflow-y-auto">
-                  {/* Ensure filteredModels is always iterable */}
-                  {Array.isArray(filteredModels) && filteredModels.length > 0 ? (
+                  {loadingModels ? (
+                    <CommandItem disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando modelos...
+                    </CommandItem>
+                  ) : filteredModels.length > 0 ? (
                     filteredModels.map((model) => (
                       <CommandItem
                         key={model.codigo}
@@ -161,7 +168,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
                     ))
                   ) : (
                     <CommandItem disabled>
-                      {loadingModels ? "Carregando modelos..." : "Nenhum modelo disponível"}
+                      {error ? error : "Nenhum modelo disponível"}
                     </CommandItem>
                   )}
                 </CommandGroup>

@@ -89,6 +89,9 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
     }
   };
 
+  // Ensure brands is always an array, even if it's an empty one
+  const safeBrands = Array.isArray(brands) ? brands : [];
+
   return (
     <FormField
       control={form.control}
@@ -126,9 +129,13 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
                 <CommandInput placeholder="Pesquisar marca..." />
                 <CommandEmpty>Nenhuma marca encontrada.</CommandEmpty>
                 <CommandGroup className="max-h-60 overflow-y-auto">
-                  {/* Ensure brands is always iterable */}
-                  {Array.isArray(brands) && brands.length > 0 ? (
-                    brands.map((brand) => (
+                  {loadingBrands ? (
+                    <CommandItem disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando marcas...
+                    </CommandItem>
+                  ) : safeBrands.length > 0 ? (
+                    safeBrands.map((brand) => (
                       <CommandItem
                         key={brand.codigo}
                         value={brand.nome}
@@ -145,7 +152,7 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
                     ))
                   ) : (
                     <CommandItem disabled>
-                      {loadingBrands ? "Carregando marcas..." : "Nenhuma marca disponível"}
+                      {error ? error : "Nenhuma marca disponível"}
                     </CommandItem>
                   )}
                 </CommandGroup>

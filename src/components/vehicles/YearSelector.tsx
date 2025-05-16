@@ -88,6 +88,9 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
     }
   };
 
+  // Make sure years is always an array
+  const safeYears = Array.isArray(years) ? years : [];
+
   return (
     <FormField
       control={form.control}
@@ -125,9 +128,13 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
                 <CommandInput placeholder="Pesquisar ano..." />
                 <CommandEmpty>Nenhum ano encontrado.</CommandEmpty>
                 <CommandGroup className="max-h-60 overflow-y-auto">
-                  {/* Ensure years is always iterable */}
-                  {Array.isArray(years) && years.length > 0 ? (
-                    years.map((year) => (
+                  {loadingYears ? (
+                    <CommandItem disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando anos...
+                    </CommandItem>
+                  ) : safeYears.length > 0 ? (
+                    safeYears.map((year) => (
                       <CommandItem
                         key={year.codigo}
                         value={year.nome}
@@ -144,7 +151,7 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
                     ))
                   ) : (
                     <CommandItem disabled>
-                      {loadingYears ? "Carregando anos..." : "Nenhum ano disponível"}
+                      {error ? error : "Nenhum ano disponível"}
                     </CommandItem>
                   )}
                 </CommandGroup>
