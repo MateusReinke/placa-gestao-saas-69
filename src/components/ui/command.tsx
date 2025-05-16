@@ -84,16 +84,24 @@ CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 const CommandGroup = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Group>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.Group
-    ref={ref}
-    className={cn(
-      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
-      className
-    )}
-    {...props}
-  />
-))
+>(({ className, children, ...props }, ref) => {
+  // Ensure children is never undefined, making the component safe for rendering
+  // This prevents the "undefined is not iterable" error
+  const safeChildren = React.Children.count(children) > 0 ? children : null;
+  
+  return (
+    <CommandPrimitive.Group
+      ref={ref}
+      className={cn(
+        "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+        className
+      )}
+      {...props}
+    >
+      {safeChildren}
+    </CommandPrimitive.Group>
+  );
+})
 
 CommandGroup.displayName = CommandPrimitive.Group.displayName
 
