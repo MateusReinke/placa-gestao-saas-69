@@ -22,6 +22,20 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import { 
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from '@/lib/utils';
+import { Check, ChevronsUpDown } from "lucide-react";
 
 interface Brand {
   codigo: string;
@@ -49,12 +63,12 @@ const formSchema = z.object({
 
 interface NewVehicleFormProps {
   onSuccess: () => void;
+  initialData?: any;
 }
 
-const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
+const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess, initialData }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [searchingModel, setSearchingModel] = useState(false);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [models, setModels] = useState<Model[]>([]);
   const [years, setYears] = useState<Year[]>([]);
@@ -63,10 +77,14 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingYears, setLoadingYears] = useState(false);
+  const [openBrand, setOpenBrand] = useState(false);
+  const [openModel, setOpenModel] = useState(false);
+  const [openYear, setOpenYear] = useState(false);
+  const [searchModel, setSearchModel] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: initialData || {
       licensePlate: '',
       model: '',
       brand: '',
@@ -76,7 +94,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
     },
   });
 
-  // Buscar marcas de veículos na inicialização
+  // Fetch car brands on initialization
   useEffect(() => {
     const fetchBrands = async () => {
       setLoadingBrands(true);
@@ -103,7 +121,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
     fetchBrands();
   }, [toast]);
 
-  // Buscar modelos quando uma marca é selecionada
+  // Fetch models when a brand is selected
   const fetchModels = async (brandCode: string) => {
     setLoadingModels(true);
     setModels([]);
@@ -131,7 +149,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
     }
   };
 
-  // Buscar anos disponíveis quando um modelo é selecionado
+  // Fetch available years when a model is selected
   const fetchYears = async (brandCode: string, modelCode: string) => {
     setLoadingYears(true);
     setYears([]);
@@ -157,37 +175,40 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
     }
   };
 
-  // Manipulador de seleção de marca
+  // Handler for brand selection
   const handleBrandChange = (value: string) => {
-    form.setValue('brand', brands.find(brand => brand.codigo === value)?.nome || '');
+    const selectedBrandName = brands.find(brand => brand.codigo === value)?.nome || '';
+    form.setValue('brand', selectedBrandName);
     setSelectedBrand(value);
     fetchModels(value);
   };
 
-  // Manipulador de seleção de modelo
+  // Handler for model selection
   const handleModelChange = (value: string) => {
-    form.setValue('model', models.find(model => model.codigo === value)?.nome || '');
+    const selectedModelName = models.find(model => model.codigo === value)?.nome || '';
+    form.setValue('model', selectedModelName);
     setSelectedModel(value);
     if (selectedBrand) {
       fetchYears(selectedBrand, value);
     }
   };
 
-  // Manipulador de seleção de ano
+  // Handler for year selection
   const handleYearChange = (value: string) => {
-    form.setValue('year', years.find(year => year.codigo === value)?.nome || '');
+    const yearName = years.find(year => year.codigo === value)?.nome || '';
+    form.setValue('year', yearName);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     
     try {
-      // Simulação de envio para API
+      // Simulation of API submission
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast({
-        title: "Veículo adicionado",
-        description: "Veículo cadastrado com sucesso",
+        title: initialData ? "Veículo atualizado" : "Veículo adicionado",
+        description: initialData ? "Veículo atualizado com sucesso" : "Veículo cadastrado com sucesso",
       });
       
       onSuccess();
@@ -202,6 +223,11 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
       setIsLoading(false);
     }
   };
+
+  // Filter models based on search query
+  const filteredModels = models.filter(model => 
+    model.nome.toLowerCase().includes(searchModel.toLowerCase())
+  );
 
   return (
     <Form {...form}>
@@ -221,112 +247,195 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
         />
 
         <div className="space-y-4">
+          {/* Brand Selection with Search */}
           <FormField
             control={form.control}
             name="brand"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Marca</FormLabel>
-                <Select 
-                  disabled={loadingBrands} 
-                  onValueChange={handleBrandChange}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma marca" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {loadingBrands ? (
-                      <SelectItem value="loading" disabled>
-                        <div className="flex items-center">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          <span>Carregando...</span>
-                        </div>
-                      </SelectItem>
-                    ) : (
-                      brands.map((brand) => (
-                        <SelectItem key={brand.codigo} value={brand.codigo}>
-                          {brand.nome}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={openBrand} onOpenChange={setOpenBrand}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openBrand}
+                        className="w-full justify-between"
+                        disabled={loadingBrands}
+                      >
+                        {loadingBrands ? (
+                          <div className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Carregando...</span>
+                          </div>
+                        ) : field.value ? (
+                          field.value
+                        ) : (
+                          "Selecione uma marca"
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar marca..." />
+                      <CommandEmpty>Nenhuma marca encontrada.</CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {brands.map((brand) => (
+                          <CommandItem
+                            key={brand.codigo}
+                            value={brand.nome}
+                            onSelect={() => {
+                              handleBrandChange(brand.codigo);
+                              setOpenBrand(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === brand.nome ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {brand.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* Model Selection with Search */}
           <FormField
             control={form.control}
             name="model"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Modelo</FormLabel>
-                <Select 
-                  disabled={!selectedBrand || loadingModels} 
-                  onValueChange={handleModelChange}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedBrand ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {loadingModels ? (
-                      <SelectItem value="loading" disabled>
-                        <div className="flex items-center">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          <span>Carregando...</span>
-                        </div>
-                      </SelectItem>
-                    ) : (
-                      models.map((model) => (
-                        <SelectItem key={model.codigo} value={model.codigo}>
-                          {model.nome}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={openModel} onOpenChange={setOpenModel}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openModel}
+                        className="w-full justify-between"
+                        disabled={!selectedBrand || loadingModels}
+                      >
+                        {loadingModels ? (
+                          <div className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Carregando...</span>
+                          </div>
+                        ) : field.value ? (
+                          field.value
+                        ) : (
+                          !selectedBrand ? "Selecione uma marca primeiro" : "Selecione um modelo"
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Pesquisar modelo..." 
+                        value={searchModel}
+                        onValueChange={setSearchModel}
+                      />
+                      <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {filteredModels.map((model) => (
+                          <CommandItem
+                            key={model.codigo}
+                            value={model.nome}
+                            onSelect={() => {
+                              handleModelChange(model.codigo);
+                              setOpenModel(false);
+                              setSearchModel("");
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === model.nome ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {model.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* Year Selection with Search */}
           <FormField
             control={form.control}
             name="year"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Ano</FormLabel>
-                <Select 
-                  disabled={!selectedModel || loadingYears} 
-                  onValueChange={handleYearChange}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={!selectedModel ? "Selecione um modelo primeiro" : "Selecione o ano"} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {loadingYears ? (
-                      <SelectItem value="loading" disabled>
-                        <div className="flex items-center">
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          <span>Carregando...</span>
-                        </div>
-                      </SelectItem>
-                    ) : (
-                      years.map((year) => (
-                        <SelectItem key={year.codigo} value={year.codigo}>
-                          {year.nome}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={openYear} onOpenChange={setOpenYear}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openYear}
+                        className="w-full justify-between"
+                        disabled={!selectedModel || loadingYears}
+                      >
+                        {loadingYears ? (
+                          <div className="flex items-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <span>Carregando...</span>
+                          </div>
+                        ) : field.value ? (
+                          field.value
+                        ) : (
+                          !selectedModel ? "Selecione um modelo primeiro" : "Selecione o ano"
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Pesquisar ano..." />
+                      <CommandEmpty>Nenhum ano encontrado.</CommandEmpty>
+                      <CommandGroup className="max-h-60 overflow-y-auto">
+                        {years.map((year) => (
+                          <CommandItem
+                            key={year.codigo}
+                            value={year.nome}
+                            onSelect={() => {
+                              handleYearChange(year.codigo);
+                              setOpenYear(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === year.nome ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {year.nome}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
@@ -367,7 +476,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({ onSuccess }) => {
           </Button>
           <Button type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Adicionar Veículo
+            {initialData ? 'Atualizar' : 'Adicionar'} Veículo
           </Button>
         </div>
       </form>

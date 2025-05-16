@@ -1,14 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { PlusCircle, Search, MoreVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { PlusCircle, Search, MoreVertical, Filter } from 'lucide-react';
 import AppLayout from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger, 
+  DropdownMenuSeparator,
+  DropdownMenuLabel
+} from '@/components/ui/dropdown-menu';
 import '@/styles/kanban.css';
 import { ApiService } from '@/services/api';
 import { Order, OrderStatus } from '@/types';
@@ -23,8 +30,12 @@ const AdminOrders = () => {
   const [statuses, setStatuses] = useState<OrderStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [organizationMode, setOrganizationMode] = useState<'list' | 'kanban'>('kanban');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
 
-  // Buscar pedidos e status na inicialização
+  // Fetch orders and statuses on initialization
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -51,23 +62,23 @@ const AdminOrders = () => {
     fetchData();
   }, [toast, user?.id, user?.role]);
 
-  const handleDragEnd = async (result: any) => {
+  const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
     
-    // Se não houver destino válido, ignorar o drop
+    // If there is no valid destination, ignore the drop
     if (!destination) return;
     
-    // Se o item for solto na mesma posição, ignorar
+    // If the item is dropped at the same position, ignore
     if (
       destination.droppableId === source.droppableId &&
       destination.index === source.index
     ) return;
     
-    // Encontrar o pedido que foi arrastado
+    // Find the order that was dragged
     const orderId = draggableId;
     const newStatusId = destination.droppableId;
     
-    // Atualizar o estado localmente para feedback imediato
+    // Update state locally for immediate feedback
     setOrders(prevOrders => 
       prevOrders.map(order => 
         order.id === orderId 
@@ -80,7 +91,7 @@ const AdminOrders = () => {
       )
     );
     
-    // Enviar a atualização para a API
+    // Send the update to the API
     try {
       await ApiService.updateOrder(orderId, { statusId: newStatusId });
       toast({
@@ -95,7 +106,7 @@ const AdminOrders = () => {
         variant: "destructive"
       });
       
-      // Reverter a alteração local em caso de erro
+      // Revert the local change in case of error
       const originalOrder = orders.find(order => order.id === orderId);
       if (originalOrder) {
         setOrders(prevOrders => 
@@ -107,8 +118,37 @@ const AdminOrders = () => {
     }
   };
 
+  // Filter orders based on search query and filters
+  const filteredOrders = orders.filter(order => {
+    const query = searchQuery.toLowerCase();
+    let matchesSearch = true;
+    let matchesClient = true;
+    let matchesService = true;
+    
+    // Apply search filter
+    if (searchQuery) {
+      matchesSearch = 
+        order.id.toLowerCase().includes(query) ||
+        order.licensePlate?.toLowerCase().includes(query) ||
+        order.client?.name.toLowerCase().includes(query) ||
+        order.serviceType?.name.toLowerCase().includes(query);
+    }
+    
+    // Apply client filter
+    if (clientFilter !== 'all' && order.client) {
+      matchesClient = order.client.id === clientFilter;
+    }
+    
+    // Apply service filter
+    if (serviceFilter !== 'all' && order.serviceType) {
+      matchesService = order.serviceType.id === serviceFilter;
+    }
+    
+    return matchesSearch && matchesClient && matchesService;
+  });
+
   const getOrdersForStatus = (statusId: string) => {
-    return orders.filter(order => order.statusId === statusId);
+    return filteredOrders.filter(order => order.statusId === statusId);
   };
 
   const getStatusColor = (colorName: string) => {
@@ -142,7 +182,18 @@ const AdminOrders = () => {
     }
   };
 
-  // Renderização condicional do conteúdo com base no modo
+  // Get unique clients and services for filtering
+  const uniqueClients = Array.from(new Set(orders.map(order => order.client?.id))).map(id => {
+    const client = orders.find(order => order.client?.id === id)?.client;
+    return client ? { id: client.id, name: client.name } : null;
+  }).filter(Boolean);
+
+  const uniqueServices = Array.from(new Set(orders.map(order => order.serviceType?.id))).map(id => {
+    const service = orders.find(order => order.serviceType?.id === id)?.serviceType;
+    return service ? { id: service.id, name: service.name } : null;
+  }).filter(Boolean);
+
+  // Conditional rendering of content based on mode
   const renderOrderContent = () => {
     if (loading) {
       return (
@@ -192,6 +243,9 @@ const AdminOrders = () => {
                                     <div className="font-medium">
                                       {order.client?.name || 'Cliente'}
                                     </div>
+                                    <div className="text-xs bg-gray-100 px-2 py-1 rounded-full">
+                                      #{order.id.substring(0, 5)}
+                                    </div>
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -240,12 +294,13 @@ const AdminOrders = () => {
         </div>
       );
     } else {
-      // Modo de visualização em lista
+      // List view mode
       return (
         <div className="rounded-md border mt-6">
           <table className="min-w-full divide-y divide-border">
             <thead>
               <tr className="bg-muted/50">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Nº Pedido</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Cliente</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Serviço</th>
                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Placa</th>
@@ -256,38 +311,50 @@ const AdminOrders = () => {
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
-              {orders.map(order => (
-                <tr key={order.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.client?.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.serviceType?.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{order.licensePlate}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className={`h-3 w-3 rounded-full mr-2 ${getStatusColor(order.status?.color || 'gray')}`}></div>
-                      {order.status?.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.value)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {new Date(order.createdAt).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => {/* Implementar edição */}}>
-                      Editar
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-destructive" 
-                      onClick={() => handleRemoveOrder(order.id)}
-                    >
-                      Remover
-                    </Button>
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map(order => (
+                  <tr key={order.id}>
+                    <td className="px-6 py-4 whitespace-nowrap font-medium">#{order.id.substring(0, 5)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{order.client?.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{order.serviceType?.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{order.licensePlate}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className={`h-3 w-3 rounded-full mr-2 ${getStatusColor(order.status?.color || 'gray')}`}></div>
+                        {order.status?.name}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(order.value)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {new Date(order.createdAt).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => {/* Implementar edição */}}>
+                        Editar
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-destructive" 
+                        onClick={() => handleRemoveOrder(order.id)}
+                      >
+                        Remover
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
+                    {searchQuery || clientFilter !== 'all' || serviceFilter !== 'all' ? 
+                      'Nenhum pedido encontrado com esses filtros.' : 
+                      'Nenhum pedido cadastrado.'
+                    }
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -320,11 +387,48 @@ const AdminOrders = () => {
           <div className="relative flex-1 min-w-[280px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar pedidos..."
+              placeholder="Buscar pedidos por número, cliente, placa..."
               className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex gap-1">
+                  <Filter className="h-4 w-4" />
+                  <span>Filtrar</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Cliente</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setClientFilter('all')}>
+                  Todos os clientes
+                </DropdownMenuItem>
+                {uniqueClients.map(client => client && (
+                  <DropdownMenuItem 
+                    key={client.id}
+                    onClick={() => setClientFilter(client.id)}
+                  >
+                    {client.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Serviço</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setServiceFilter('all')}>
+                  Todos os serviços
+                </DropdownMenuItem>
+                {uniqueServices.map(service => service && (
+                  <DropdownMenuItem 
+                    key={service.id}
+                    onClick={() => setServiceFilter(service.id)}
+                  >
+                    {service.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant={organizationMode === 'list' ? 'default' : 'outline'}
               onClick={() => setOrganizationMode('list')}
