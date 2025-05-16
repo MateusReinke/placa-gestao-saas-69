@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User, UserRole } from '@/types';
 import { toast } from 'sonner';
 
@@ -76,27 +76,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Debug helper function
+  const logAuthState = (message: string, data?: any) => {
+    console.log(`[Auth] ${message}`, data || '');
+  };
   
   useEffect(() => {
     // Check for saved token on mount
     const savedToken = localStorage.getItem('auth_token');
     const savedUser = localStorage.getItem('auth_user');
     
+    logAuthState('Checking for existing auth data', { savedToken: !!savedToken, savedUser: !!savedUser, path: location.pathname });
+    
     if (savedToken && savedUser) {
       try {
+        const parsedUser = JSON.parse(savedUser);
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+        setUser(parsedUser);
+        logAuthState('User authenticated from localStorage', { userId: parsedUser.id, role: parsedUser.role });
       } catch (e) {
+        logAuthState('Error parsing saved user data', e);
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
       }
+    } else {
+      logAuthState('No saved authentication found');
     }
     
     setLoading(false);
-  }, []);
+  }, [location.pathname]);
   
   const login = async (email: string, password: string) => {
     setLoading(true);
+    logAuthState('Login attempt', { email });
+    
     try {
       const result = await mockLogin(email, password);
       
@@ -108,12 +123,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('auth_token', result.token);
         localStorage.setItem('auth_user', JSON.stringify(result.user));
         
+        logAuthState('Login successful', { userId: result.user.id, role: result.user.role });
         toast.success('Login realizado com sucesso!');
-        navigate('/dashboard');
+        
+        // Get the intended destination or default to dashboard
+        const from = location.state?.from?.pathname || '/dashboard';
+        logAuthState('Redirecting after login to', from);
+        navigate(from, { replace: true });
       } else {
+        logAuthState('Login failed - Invalid credentials');
         toast.error('Credenciais inválidas');
       }
     } catch (error) {
+      logAuthState('Login error', error);
       console.error('Login error:', error);
       toast.error('Erro ao fazer login');
     } finally {
@@ -122,6 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const logout = () => {
+    logAuthState('Logging out user', { userId: user?.id });
     setUser(null);
     setToken(null);
     localStorage.removeItem('auth_token');
