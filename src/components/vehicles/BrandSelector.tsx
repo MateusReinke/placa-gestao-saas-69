@@ -36,7 +36,6 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
         const response = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas');
         if (response.ok) {
           const data = await response.json();
-          // Ensure we're setting an array, even if empty
           setBrands(Array.isArray(data) ? data : []);
           console.log("Marcas carregadas:", data.length);
         } else {
@@ -47,13 +46,11 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
             description: "Não foi possível carregar as marcas de veículos.",
             variant: "destructive",
           });
-          // Set empty array to prevent undefined
           setBrands([]);
         }
       } catch (error) {
         console.error('Erro ao buscar marcas:', error);
         setError("Erro ao carregar marcas. Tente novamente.");
-        // Set empty array to prevent undefined
         setBrands([]);
       } finally {
         setLoadingBrands(false);
@@ -66,8 +63,8 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
   // Handler for brand selection with safeguards
   const handleBrandChange = (value: string) => {
     try {
-      // Find the brand in the brands array, with a fallback if not found
-      const selectedBrandObj = safeBrands.find(brand => brand.codigo === value);
+      // Find the brand in the brands array
+      const selectedBrandObj = brands.find(brand => brand.codigo === value);
       const selectedBrandName = selectedBrandObj?.nome || '';
       console.log("Nome da marca:", selectedBrandName);
       
@@ -77,21 +74,16 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
       // Then update form value
       form.setValue('brand', selectedBrandName);
       
-      // Call the onBrandSelect callback with a delay to allow UI to update first
-      setTimeout(() => {
-        if (value) {
-          onBrandSelect(value);
-        }
-      }, 100);
+      // Call the onBrandSelect callback
+      if (value) {
+        onBrandSelect(value);
+      }
     } catch (error) {
       console.error("Erro ao selecionar marca:", error);
       setError("Erro ao selecionar marca. Tente novamente.");
-      setOpen(false); // Always close popover on error
+      setOpen(false);
     }
   };
-
-  // Ensure brands is always an array, even if it's an empty one
-  const safeBrands = Array.isArray(brands) ? brands : [];
 
   return (
     <FormField
@@ -129,14 +121,14 @@ const BrandSelector: React.FC<BrandSelectorProps> = ({ form, onBrandSelect, isLo
               <Command>
                 <CommandInput placeholder="Pesquisar marca..." />
                 <CommandEmpty>Nenhuma marca encontrada.</CommandEmpty>
-                <CommandGroup className="max-h-60 overflow-y-auto">
+                <CommandGroup>
                   {loadingBrands ? (
                     <CommandItem disabled>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Carregando marcas...
                     </CommandItem>
-                  ) : safeBrands.length > 0 ? (
-                    safeBrands.map((brand) => (
+                  ) : brands.length > 0 ? (
+                    brands.map((brand) => (
                       <CommandItem
                         key={brand.codigo}
                         value={brand.nome}

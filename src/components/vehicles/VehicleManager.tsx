@@ -25,16 +25,59 @@ interface Vehicle {
   };
 }
 
+// Mock data for development
+const mockVehicles: Vehicle[] = [
+  { 
+    id: '1', 
+    model: 'Civic', 
+    brand: 'Honda', 
+    licensePlate: 'ABC-1234', 
+    year: '2020', 
+    renavam: '1234567890',
+    clientId: '1',
+    client: {
+      id: '1',
+      name: 'João Silva'
+    }
+  },
+  { 
+    id: '2', 
+    model: 'Corolla', 
+    brand: 'Toyota', 
+    licensePlate: 'DEF-5678', 
+    year: '2021', 
+    renavam: '0987654321',
+    clientId: '2',
+    client: {
+      id: '2',
+      name: 'Maria Oliveira'
+    }
+  },
+  { 
+    id: '3', 
+    model: 'Renegade', 
+    brand: 'Jeep', 
+    licensePlate: 'GHI-9012', 
+    year: '2022', 
+    renavam: '5678901234',
+    clientId: '1',
+    client: {
+      id: '1',
+      name: 'João Silva'
+    }
+  }
+];
+
 interface VehicleManagerProps {
   initialVehicles?: Vehicle[];
 }
 
-const VehicleManager: React.FC<VehicleManagerProps> = ({ initialVehicles = [] }) => {
+const VehicleManager: React.FC<VehicleManagerProps> = ({ initialVehicles }) => {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentVehicle, setCurrentVehicle] = useState<Vehicle | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles || mockVehicles);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,7 +102,7 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({ initialVehicles = [] })
   }, [toast]);
 
   // Add/edit vehicle
-  const handleAddEditVehicle = (vehicle: Vehicle) => {
+  const handleAddEditVehicle = (vehicle: Vehicle | null) => {
     if (!vehicle) {
       setIsDialogOpen(false);
       return;

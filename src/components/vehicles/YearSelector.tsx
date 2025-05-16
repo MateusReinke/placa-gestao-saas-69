@@ -33,7 +33,7 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
     
     const fetchYears = async () => {
       setLoadingYears(true);
-      setYears([]); // Initialize with empty array
+      setYears([]); 
       form.setValue('year', '');
       setError(null);
       
@@ -42,7 +42,6 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
         const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos/${modelCode}/anos`);
         if (response.ok) {
           const data = await response.json();
-          // Ensure we're setting an array, even if empty
           setYears(Array.isArray(data) ? data : []);
           console.log("Anos carregados:", Array.isArray(data) ? data.length : 0);
         } else {
@@ -53,13 +52,11 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
             description: "Não foi possível carregar os anos disponíveis.",
             variant: "destructive",
           });
-          // Set empty array to prevent undefined
           setYears([]);
         }
       } catch (error) {
         console.error('Erro ao buscar anos:', error);
         setError("Erro ao carregar anos. Tente novamente.");
-        // Set empty array to prevent undefined
         setYears([]);
       } finally {
         setLoadingYears(false);
@@ -75,8 +72,7 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
       // First close the popover to prevent rendering issues
       setOpen(false);
 
-      // Find the year in the years array, with a fallback if not found
-      const selectedYearObj = safeYears.find(year => year.codigo === value);
+      const selectedYearObj = years.find(year => year.codigo === value);
       const yearName = selectedYearObj?.nome || '';
       console.log("Ano:", yearName);
       
@@ -86,9 +82,6 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
       setError("Erro ao selecionar ano. Tente novamente.");
     }
   };
-
-  // Make sure years is always an array
-  const safeYears = Array.isArray(years) ? years : [];
 
   return (
     <FormField
@@ -126,14 +119,14 @@ const YearSelector: React.FC<YearSelectorProps> = ({ form, brandCode, modelCode,
               <Command>
                 <CommandInput placeholder="Pesquisar ano..." />
                 <CommandEmpty>Nenhum ano encontrado.</CommandEmpty>
-                <CommandGroup className="max-h-60 overflow-y-auto">
+                <CommandGroup>
                   {loadingYears ? (
                     <CommandItem disabled>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Carregando anos...
                     </CommandItem>
-                  ) : safeYears.length > 0 ? (
-                    safeYears.map((year) => (
+                  ) : years.length > 0 ? (
+                    years.map((year) => (
                       <CommandItem
                         key={year.codigo}
                         value={year.nome}

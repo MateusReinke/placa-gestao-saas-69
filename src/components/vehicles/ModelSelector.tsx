@@ -34,7 +34,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
     
     const fetchModels = async () => {
       setLoadingModels(true);
-      setModels([]); // Initialize with empty array
+      setModels([]);
       form.setValue('model', '');
       setError(null);
       
@@ -43,7 +43,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
         const response = await fetch(`https://parallelum.com.br/fipe/api/v1/carros/marcas/${brandCode}/modelos`);
         if (response.ok) {
           const data = await response.json();
-          // Ensure we're setting an array, even if empty
           const modelosArray = data && data.modelos ? data.modelos : [];
           setModels(Array.isArray(modelosArray) ? modelosArray : []);
           console.log("Modelos carregados:", modelosArray.length);
@@ -55,13 +54,11 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
             description: "Não foi possível carregar os modelos.",
             variant: "destructive",
           });
-          // Set empty array to prevent undefined
           setModels([]);
         }
       } catch (error) {
         console.error('Erro ao buscar modelos:', error);
         setError("Erro ao carregar modelos. Tente novamente.");
-        // Set empty array to prevent undefined
         setModels([]);
       } finally {
         setLoadingModels(false);
@@ -77,30 +74,25 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
       // First close the popover to prevent rendering issues
       setOpen(false);
 
-      // Find the model in the models array, with a fallback if not found
-      const selectedModelObj = safeModels.find(model => model.codigo === value);
+      // Find the model in the models array
+      const selectedModelObj = models.find(model => model.codigo === value);
       const selectedModelName = selectedModelObj?.nome || '';
       console.log("Nome do modelo:", selectedModelName);
       
       form.setValue('model', selectedModelName);
       
-      // Call the onModelSelect callback with a delay to allow UI to update first
-      setTimeout(() => {
-        if (value) {
-          onModelSelect(value);
-        }
-      }, 100);
+      // Call the onModelSelect callback
+      if (value) {
+        onModelSelect(value);
+      }
     } catch (error) {
       console.error("Erro ao selecionar modelo:", error);
       setError("Erro ao selecionar modelo. Tente novamente.");
     }
   };
 
-  // Make sure models is always an array
-  const safeModels = Array.isArray(models) ? models : [];
-
-  // Filter models based on search query using the safe array
-  const filteredModels = safeModels.filter(model => 
+  // Filter models based on search query
+  const filteredModels = models.filter(model => 
     model.nome.toLowerCase().includes(searchModel.toLowerCase())
   );
 
@@ -144,7 +136,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({ form, brandCode, onModelS
                   onValueChange={setSearchModel}
                 />
                 <CommandEmpty>Nenhum modelo encontrado.</CommandEmpty>
-                <CommandGroup className="max-h-60 overflow-y-auto">
+                <CommandGroup>
                   {loadingModels ? (
                     <CommandItem disabled>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

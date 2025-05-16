@@ -5,19 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Form } from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
-import BrandSelector from '@/components/vehicles/BrandSelector';
-import ModelSelector from '@/components/vehicles/ModelSelector';
-import YearSelector from '@/components/vehicles/YearSelector';
+import VehicleFormFields from '@/components/vehicles/VehicleFormFields';
 
 const formSchema = z.object({
   licensePlate: z.string().min(7, "Placa inválida").max(8, "Placa inválida"),
@@ -44,8 +34,6 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const defaultValues = {
@@ -100,78 +88,11 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
           </div>
         )}
 
-        {!simplified && (
-          <FormField
-            control={form.control}
-            name="licensePlate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Placa do Veículo</FormLabel>
-                <FormControl>
-                  <Input {...field} placeholder="AAA-0000 ou AAA0000" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        <div className="space-y-4">
-          {/* Brand Selector Component */}
-          <BrandSelector 
-            form={form} 
-            onBrandSelect={(brandCode) => setSelectedBrand(brandCode)} 
-            isLoading={isLoading}
-          />
-
-          {/* Model Selector Component */}
-          <ModelSelector 
-            form={form} 
-            brandCode={selectedBrand} 
-            onModelSelect={(modelCode) => setSelectedModel(modelCode)} 
-            isLoading={isLoading}
-          />
-
-          {/* Year Selector Component */}
-          <YearSelector 
-            form={form} 
-            brandCode={selectedBrand} 
-            modelCode={selectedModel} 
-            isLoading={isLoading}
-          />
-        </div>
-
-        {!simplified && (
-          <>
-            <FormField
-              control={form.control}
-              name="renavam"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Renavam</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Opcional" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="chassis"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chassi</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Opcional" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
+        <VehicleFormFields 
+          form={form} 
+          simplified={simplified} 
+          isLoading={isLoading} 
+        />
 
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => onSuccess(null)}>
