@@ -85,8 +85,9 @@ const CommandGroup = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Group>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Group>
 >(({ className, children, ...props }, ref) => {
-  // The key fix: ensure children is safely handled before being passed to CommandPrimitive.Group
-  // This prevents the "undefined is not iterable" error
+  // Ensure children is not undefined before rendering
+  const safeChildren = children || null;
+  
   return (
     <CommandPrimitive.Group
       ref={ref}
@@ -96,7 +97,7 @@ const CommandGroup = React.forwardRef<
       )}
       {...props}
     >
-      {children}
+      {safeChildren}
     </CommandPrimitive.Group>
   );
 })
