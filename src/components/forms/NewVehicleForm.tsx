@@ -63,7 +63,7 @@ const formSchema = z.object({
 });
 
 interface NewVehicleFormProps {
-  onSuccess: () => void;
+  onSuccess: (vehicle: any) => void;
   initialData?: any;
   clientId?: string;
   simplified?: boolean;
@@ -89,16 +89,16 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
   const [openModel, setOpenModel] = useState(false);
   const [openYear, setOpenYear] = useState(false);
   const [searchModel, setSearchModel] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const defaultValues = {
-    licensePlate: '',
-    model: '',
-    brand: '',
-    year: '',
-    renavam: '',
-    chassis: '',
-    clientId: clientId || '',
-    ...initialData
+    licensePlate: initialData?.licensePlate || '',
+    model: initialData?.model || '',
+    brand: initialData?.brand || '',
+    year: initialData?.year || '',
+    renavam: initialData?.renavam || '',
+    chassis: initialData?.chassis || '',
+    clientId: clientId || initialData?.clientId || '',
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -110,6 +110,8 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
   useEffect(() => {
     const fetchBrands = async () => {
       setLoadingBrands(true);
+      setError(null);
+      
       try {
         const response = await fetch('https://parallelum.com.br/fipe/api/v1/carros/marcas');
         if (response.ok) {
@@ -118,6 +120,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
           console.log("Marcas carregadas:", data.length);
         } else {
           console.error('Erro ao buscar marcas:', response.statusText);
+          setError("Não foi possível carregar as marcas de veículos.");
           toast({
             title: "Erro",
             description: "Não foi possível carregar as marcas de veículos.",
@@ -126,6 +129,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         }
       } catch (error) {
         console.error('Erro ao buscar marcas:', error);
+        setError("Erro ao carregar marcas. Tente novamente.");
       } finally {
         setLoadingBrands(false);
       }
@@ -143,6 +147,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
     setYears([]);
     form.setValue('model', '');
     form.setValue('year', '');
+    setError(null);
     
     try {
       console.log("Buscando modelos para marca:", brandCode);
@@ -153,6 +158,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         console.log("Modelos carregados:", data.modelos.length);
       } else {
         console.error('Erro ao buscar modelos:', response.statusText);
+        setError("Não foi possível carregar os modelos para esta marca.");
         toast({
           title: "Erro",
           description: "Não foi possível carregar os modelos.",
@@ -161,6 +167,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
       }
     } catch (error) {
       console.error('Erro ao buscar modelos:', error);
+      setError("Erro ao carregar modelos. Tente novamente.");
     } finally {
       setLoadingModels(false);
     }
@@ -173,6 +180,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
     setLoadingYears(true);
     setYears([]);
     form.setValue('year', '');
+    setError(null);
     
     try {
       console.log(`Buscando anos para marca ${brandCode} e modelo ${modelCode}`);
@@ -183,6 +191,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         console.log("Anos carregados:", data.length);
       } else {
         console.error('Erro ao buscar anos:', response.statusText);
+        setError("Não foi possível carregar os anos disponíveis para este modelo.");
         toast({
           title: "Erro",
           description: "Não foi possível carregar os anos disponíveis.",
@@ -191,43 +200,65 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
       }
     } catch (error) {
       console.error('Erro ao buscar anos:', error);
+      setError("Erro ao carregar anos. Tente novamente.");
     } finally {
       setLoadingYears(false);
     }
   };
 
-  // Handler for brand selection
+  // Handler for brand selection - fixed to avoid the page getting stuck
   const handleBrandChange = (value: string) => {
-    console.log("Marca selecionada código:", value);
-    const selectedBrandName = brands.find(brand => brand.codigo === value)?.nome || '';
-    console.log("Nome da marca:", selectedBrandName);
-    form.setValue('brand', selectedBrandName);
-    setSelectedBrand(value);
-    fetchModels(value);
-  };
-
-  // Handler for model selection
-  const handleModelChange = (value: string) => {
-    console.log("Modelo selecionado código:", value);
-    const selectedModelName = models.find(model => model.codigo === value)?.nome || '';
-    console.log("Nome do modelo:", selectedModelName);
-    form.setValue('model', selectedModelName);
-    setSelectedModel(value);
-    if (selectedBrand) {
-      fetchYears(selectedBrand, value);
+    try {
+      console.log("Marca selecionada código:", value);
+      const selectedBrandName = brands.find(brand => brand.codigo === value)?.nome || '';
+      console.log("Nome da marca:", selectedBrandName);
+      form.setValue('brand', selectedBrandName);
+      setSelectedBrand(value);
+      setOpenBrand(false); // Close the popover after selection
+      // Fetch models in a slight delay to make sure the UI updates first
+      setTimeout(() => fetchModels(value), 100);
+    } catch (error) {
+      console.error("Erro ao selecionar marca:", error);
+      setError("Erro ao selecionar marca. Tente novamente.");
     }
   };
 
-  // Handler for year selection
+  // Handler for model selection - fixed to avoid the page getting stuck
+  const handleModelChange = (value: string) => {
+    try {
+      console.log("Modelo selecionado código:", value);
+      const selectedModelName = models.find(model => model.codigo === value)?.nome || '';
+      console.log("Nome do modelo:", selectedModelName);
+      form.setValue('model', selectedModelName);
+      setSelectedModel(value);
+      setOpenModel(false); // Close the popover after selection
+      // Fetch years in a slight delay to make sure the UI updates first
+      if (selectedBrand) {
+        setTimeout(() => fetchYears(selectedBrand, value), 100);
+      }
+    } catch (error) {
+      console.error("Erro ao selecionar modelo:", error);
+      setError("Erro ao selecionar modelo. Tente novamente.");
+    }
+  };
+
+  // Handler for year selection - fixed to avoid the page getting stuck
   const handleYearChange = (value: string) => {
-    console.log("Ano selecionado código:", value);
-    const yearName = years.find(year => year.codigo === value)?.nome || '';
-    console.log("Ano:", yearName);
-    form.setValue('year', yearName);
+    try {
+      console.log("Ano selecionado código:", value);
+      const yearName = years.find(year => year.codigo === value)?.nome || '';
+      console.log("Ano:", yearName);
+      form.setValue('year', yearName);
+      setOpenYear(false); // Close the popover after selection
+    } catch (error) {
+      console.error("Erro ao selecionar ano:", error);
+      setError("Erro ao selecionar ano. Tente novamente.");
+    }
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setError(null);
     
     try {
       console.log("Dados do veículo:", values);
@@ -239,9 +270,10 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         description: initialData ? "Veículo atualizado com sucesso" : "Veículo cadastrado com sucesso",
       });
       
-      onSuccess();
+      onSuccess(values);
     } catch (error) {
       console.error("Erro ao adicionar veículo:", error);
+      setError("Erro ao salvar o veículo. Tente novamente.");
       toast({
         title: "Erro",
         description: "Não foi possível adicionar o veículo",
@@ -257,9 +289,20 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
     model.nome.toLowerCase().includes(searchModel.toLowerCase())
   );
 
+  // Handle any errors that occurred during API calls
+  if (error) {
+    console.log("Erro no formulário:", error);
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+        {error && (
+          <div className="bg-destructive/10 p-3 rounded-md text-destructive text-sm mb-4">
+            {error}
+          </div>
+        )}
+
         {!simplified && (
           <FormField
             control={form.control}
@@ -293,8 +336,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                         aria-expanded={openBrand}
                         className="w-full justify-between"
                         disabled={loadingBrands}
-                        type="button" // Importante para evitar submissão do form ao clicar
-                        onClick={() => setOpenBrand(true)} // Importante para garantir que abre
+                        type="button"
                       >
                         {loadingBrands ? (
                           <div className="flex items-center">
@@ -319,10 +361,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                           <CommandItem
                             key={brand.codigo}
                             value={brand.nome}
-                            onSelect={() => {
-                              handleBrandChange(brand.codigo);
-                              setOpenBrand(false);
-                            }}
+                            onSelect={() => handleBrandChange(brand.codigo)}
                           >
                             <Check
                               className={cn(
@@ -358,8 +397,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                         aria-expanded={openModel}
                         className="w-full justify-between"
                         disabled={!selectedBrand || loadingModels}
-                        type="button" // Importante para evitar submissão do form ao clicar
-                        onClick={() => setOpenModel(true)} // Importante para garantir que abre
+                        type="button"
                       >
                         {loadingModels ? (
                           <div className="flex items-center">
@@ -388,11 +426,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                           <CommandItem
                             key={model.codigo}
                             value={model.nome}
-                            onSelect={() => {
-                              handleModelChange(model.codigo);
-                              setOpenModel(false);
-                              setSearchModel("");
-                            }}
+                            onSelect={() => handleModelChange(model.codigo)}
                           >
                             <Check
                               className={cn(
@@ -428,8 +462,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                         aria-expanded={openYear}
                         className="w-full justify-between"
                         disabled={!selectedModel || loadingYears}
-                        type="button" // Importante para evitar submissão do form ao clicar
-                        onClick={() => setOpenYear(true)} // Importante para garantir que abre
+                        type="button"
                       >
                         {loadingYears ? (
                           <div className="flex items-center">
@@ -454,10 +487,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
                           <CommandItem
                             key={year.codigo}
                             value={year.nome}
-                            onSelect={() => {
-                              handleYearChange(year.codigo);
-                              setOpenYear(false);
-                            }}
+                            onSelect={() => handleYearChange(year.codigo)}
                           >
                             <Check
                               className={cn(
@@ -511,7 +541,7 @@ const NewVehicleForm: React.FC<NewVehicleFormProps> = ({
         )}
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onSuccess}>
+          <Button type="button" variant="outline" onClick={() => onSuccess(null)}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isLoading}>

@@ -318,7 +318,7 @@ const AdminVehicles = () => {
             </DialogTitle>
           </DialogHeader>
           <NewVehicleForm 
-            onSuccess={() => setIsDialogOpen(false)} 
+            onSuccess={handleAddEditVehicle} 
             initialData={currentVehicle}
           />
         </DialogContent>

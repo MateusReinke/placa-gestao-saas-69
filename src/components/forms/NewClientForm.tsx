@@ -52,6 +52,7 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
   const [searchingDocument, setSearchingDocument] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [addVehicle, setAddVehicle] = useState(false);
+  const [vehicleData, setVehicleData] = useState<any | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -187,12 +188,21 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
     form.setValue('addVehicle', checked);
   };
 
-  const onVehicleFormSuccess = () => {
+  const onVehicleFormSuccess = (vehicleData: any) => {
+    if (vehicleData) {
+      setVehicleData(vehicleData);
+      // Auto-fill some data in the form for display purposes
+      form.setValue('vehicleBrand', vehicleData.brand || '');
+      form.setValue('vehicleModel', vehicleData.model || '');
+      form.setValue('vehicleYear', vehicleData.year || '');
+      form.setValue('vehicleLicensePlate', vehicleData.licensePlate || '');
+      
+      toast({
+        title: "Veículo adicionado",
+        description: "As informações do veículo foram salvas e serão associadas ao cliente",
+      });
+    }
     setIsDialogOpen(false);
-    toast({
-      title: "Veículo adicionado",
-      description: "As informações do veículo foram salvas e serão associadas ao cliente",
-    });
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -225,8 +235,10 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
       const client = await ApiService.createClient(newClient);
       
       // Se tiver veículo para adicionar, criaremos após o cliente
-      if (values.addVehicle && client) {
+      if (values.addVehicle && client && vehicleData) {
         // Aqui implementaríamos a lógica para salvar o veículo associado ao cliente
+        console.log("Salvando veículo para cliente", client.id, vehicleData);
+        
         toast({
           title: "Veículo registrado",
           description: "O veículo foi associado ao cliente com sucesso",
@@ -477,74 +489,86 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
                 </Button>
               </div>
               
-              <p className="text-sm text-muted-foreground mb-4">
-                Você poderá adicionar mais veículos após cadastrar o cliente.
-              </p>
-              
-              <Accordion type="single" collapsible>
-                <AccordionItem value="add-vehicle">
-                  <AccordionTrigger>Adicionar manualmente</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="vehicleLicensePlate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Placa do Veículo</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="AAA-0000 ou AAA0000" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="vehicleBrand"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Marca</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Ex: Honda, Toyota, Fiat..." />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="vehicleModel"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Modelo</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Ex: Civic, Corolla, Uno..." />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="vehicleYear"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Ano</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="Ex: 2020/2021" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+              {vehicleData ? (
+                <div className="bg-muted/20 p-4 rounded-md mb-4">
+                  <h4 className="font-medium mb-2">Veículo registrado</h4>
+                  <p className="text-sm mb-1"><span className="font-medium">Marca:</span> {vehicleData.brand}</p>
+                  <p className="text-sm mb-1"><span className="font-medium">Modelo:</span> {vehicleData.model}</p>
+                  <p className="text-sm mb-1"><span className="font-medium">Ano:</span> {vehicleData.year}</p>
+                  <p className="text-sm mb-1"><span className="font-medium">Placa:</span> {vehicleData.licensePlate}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Você poderá adicionar mais veículos após cadastrar o cliente.
+                </p>
+              )}
+
+              {!vehicleData && (
+                <Accordion type="single" collapsible>
+                  <AccordionItem value="add-vehicle">
+                    <AccordionTrigger>Adicionar manualmente</AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="vehicleLicensePlate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Placa do Veículo</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="AAA-0000 ou AAA0000" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="vehicleBrand"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Marca</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Ex: Honda, Toyota, Fiat..." />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="vehicleModel"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Modelo</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Ex: Civic, Corolla, Uno..." />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="vehicleYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Ano</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Ex: 2020/2021" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
             </div>
           )}
 

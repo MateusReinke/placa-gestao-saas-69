@@ -19,6 +19,7 @@ import AdminClients from "./pages/admin/Clients";
 import AdminSellers from "./pages/admin/Sellers";
 import AdminInventory from "./pages/admin/Inventory";
 import AdminSettings from "./pages/admin/Settings";
+import AdminVehicles from "./pages/admin/Vehicles"; // Added import
 
 // Seller Pages
 import SellerDashboard from "./pages/vendedor/Dashboard";
@@ -26,6 +27,7 @@ import SellerOrders from "./pages/vendedor/Orders";
 import SellerClients from "./pages/vendedor/Clients";
 import SellerInventory from "./pages/vendedor/Inventory";
 import SellerSettings from "./pages/vendedor/Settings";
+import SellerVehicles from "./pages/vendedor/Vehicles"; // Added import
 
 // Client Pages
 import ClientDashboard from "./pages/clientes/Dashboard";
@@ -67,6 +69,11 @@ const App = () => (
                 <AdminClients />
               </ProtectedRoute>
             } />
+            <Route path="/admin/vehicles" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminVehicles />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/sellers" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AdminSellers />
@@ -97,6 +104,11 @@ const App = () => (
             <Route path="/seller/clients" element={
               <ProtectedRoute allowedRoles={['admin', 'seller']}>
                 <SellerClients />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/vehicles" element={
+              <ProtectedRoute allowedRoles={['admin', 'seller']}>
+                <SellerVehicles />
               </ProtectedRoute>
             } />
             <Route path="/seller/inventory" element={

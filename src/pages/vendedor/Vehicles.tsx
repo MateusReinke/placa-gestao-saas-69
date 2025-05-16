@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, ChevronDown, Pencil, Trash2, Loader2, Filter } from 'lucide-react';
@@ -27,8 +27,8 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { ApiService } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
 import { Client } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Vehicle {
   id: string;
@@ -45,6 +45,7 @@ interface Vehicle {
   };
 }
 
+// Mock data for development
 const mockVehicles: Vehicle[] = [
   { 
     id: '1', 
@@ -71,6 +72,19 @@ const mockVehicles: Vehicle[] = [
       id: '2',
       name: 'Maria Oliveira'
     }
+  },
+  { 
+    id: '3', 
+    model: 'Renegade', 
+    brand: 'Jeep', 
+    licensePlate: 'GHI-9012', 
+    year: '2022', 
+    renavam: '5678901234',
+    clientId: '1',
+    client: {
+      id: '1',
+      name: 'João Silva'
+    }
   }
 ];
 
@@ -85,37 +99,32 @@ const SellerVehicles = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientFilter, setClientFilter] = useState('all');
-  
-  React.useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+
+  useEffect(() => {
+    const fetchClients = async () => {
       try {
-        if (!user) return;
-        
-        // Fetch clients for this seller
-        const fetchedClients = await ApiService.getClients(user.id, user.role);
+        const fetchedClients = await ApiService.getClients();
         setClients(fetchedClients);
-        
-        // In a real app, we would also fetch vehicles here
-        // setVehicles(await fetchVehicles())
-        
       } catch (error) {
-        console.error("Erro ao carregar dados:", error);
+        console.error('Erro ao buscar clientes:', error);
         toast({
           title: "Erro",
-          description: "Não foi possível carregar os dados dos veículos e clientes.",
+          description: "Não foi possível carregar a lista de clientes.",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
       }
     };
     
-    fetchData();
-  }, [user, toast]);
+    fetchClients();
+  }, [toast]);
 
   // Add/edit vehicle
   const handleAddEditVehicle = (vehicle: Vehicle) => {
+    if (!vehicle) {
+      setIsDialogOpen(false);
+      return;
+    }
+    
     if (isEditMode && currentVehicle) {
       // Update existing vehicle
       setVehicles(vehicles.map(v => v.id === currentVehicle.id ? {...vehicle, id: currentVehicle.id} : v));
@@ -185,7 +194,7 @@ const SellerVehicles = () => {
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Veículos dos Clientes</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Gerenciar Veículos</h1>
           <Button className="flex gap-2" onClick={handleNewVehicle}>
             <PlusCircle className="h-4 w-4" />
             <span>Adicionar Veículo</span>
@@ -317,7 +326,7 @@ const SellerVehicles = () => {
             </DialogTitle>
           </DialogHeader>
           <NewVehicleForm 
-            onSuccess={() => setIsDialogOpen(false)} 
+            onSuccess={handleAddEditVehicle} 
             initialData={currentVehicle}
           />
         </DialogContent>
