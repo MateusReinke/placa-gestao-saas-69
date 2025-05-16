@@ -1,20 +1,34 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import AppLayout from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Search, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import NewClientForm from '@/components/forms/NewClientForm';
 
 const SellerClients = () => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight">Meus Clientes</h1>
-          <Button className="flex gap-2">
-            <PlusCircle className="h-4 w-4" />
-            <span>Novo Cliente</span>
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex gap-2">
+                <PlusCircle className="h-4 w-4" />
+                <span>Novo Cliente</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Adicionar Novo Cliente</DialogTitle>
+              </DialogHeader>
+              <NewClientForm onSuccess={() => setIsDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
         </div>
         
         <div className="flex gap-2 items-center">
