@@ -68,3 +68,24 @@ export interface DashboardStats {
   ordersByServiceType: { serviceName: string; count: number }[];
   ordersByMonth: { month: string; count: number }[];
 }
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  minQuantity: number;
+  costPrice: number;
+  category: string;
+  status: 'adequate' | 'low' | 'critical';
+}
+
+export interface InventoryHistory {
+  id: string;
+  date: string;
+  item: string;
+  movement: 'in' | 'out';
+  quantity: number;
+  order?: string;
+  responsible: string;
+  notes?: string;
+}

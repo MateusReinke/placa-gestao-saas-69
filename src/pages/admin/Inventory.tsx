@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AppLayout from '@/components/layouts/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -232,9 +231,13 @@ const AdminInventory = () => {
     if (isEditMode && currentItem) {
       // Update existing item
       const status = calculateStatus(data.quantity, data.minQuantity);
-      const updatedItem = {
+      const updatedItem: InventoryItem = {
         ...currentItem,
-        ...data,
+        name: data.name,
+        quantity: data.quantity,
+        minQuantity: data.minQuantity,
+        costPrice: data.costPrice,
+        category: data.category,
         status,
       };
       setInventory(inventory.map(item => item.id === currentItem.id ? updatedItem : item));
@@ -247,7 +250,11 @@ const AdminInventory = () => {
       const status = calculateStatus(data.quantity, data.minQuantity);
       const newItem: InventoryItem = {
         id: Date.now().toString(),
-        ...data,
+        name: data.name,
+        quantity: data.quantity,
+        minQuantity: data.minQuantity,
+        costPrice: data.costPrice,
+        category: data.category,
         status,
       };
       setInventory([...inventory, newItem]);
