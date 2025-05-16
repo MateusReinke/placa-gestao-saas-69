@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { ServiceType, Order } from '@/types';
+import { ServiceType, Order, Client } from '@/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const formSchema = z.object({
@@ -225,17 +224,25 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       const selectedYear = vehicleYears.find(y => y.code === values.vehicleYear);
       const vehicleDisplay = selectedModel ? `${selectedModel.name} (${selectedYear?.name || ''})` : '';
 
+      // Criando um cliente que satisfaz a interface Client
+      const clientData: Client = {
+        id: user.id,
+        name: values.clientName || user.name || 'Cliente',
+        document: user.document || '00000000000', // Valor padrão para documento
+        type: 'physical', // Tipo padrão
+        createdBy: user.id,
+        email: user.email || '',
+        phone: values.clientContact || '',
+      };
+
       // Aqui estamos simulando a criação de um pedido
-      const newOrder: Partial<Order> = {
-        id: `ORD${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+      const newOrder: Omit<Order, 'id' | 'createdAt'> = {
         clientId: user.id,
         serviceTypeId: values.serviceTypeId,
         serviceType: serviceType,
         statusId: "1", // Status inicial (novo)
         licensePlate: values.licensePlate,
-        vehicleInfo: vehicleDisplay,
         createdBy: user.id,
-        createdAt: new Date().toISOString(),
         value: Math.random() * 500 + 100, // Valor simulado
         status: {
           id: "1",
@@ -244,12 +251,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
           active: true,
           order: 1
         },
-        client: {
-          id: user.id,
-          name: values.clientName || user.name || 'Cliente',
-          email: user.email || '',
-          phone: values.clientContact || ''
-        }
+        client: clientData
       };
 
       await ApiService.createOrder(newOrder);
@@ -259,7 +261,14 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         description: "Seu pedido foi criado com sucesso",
       });
       
-      onSuccess(newOrder as Order);
+      // Adicionando id e createdAt para satisfazer a interface Order no callback
+      const orderWithId: Order = {
+        ...newOrder,
+        id: `ORD${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+        createdAt: new Date().toISOString()
+      };
+      
+      onSuccess(orderWithId);
     } catch (error) {
       console.error("Erro ao criar pedido:", error);
       toast({
