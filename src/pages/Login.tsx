@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,6 @@ const Login = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const { login, loading, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -49,8 +48,12 @@ const Login = () => {
     
     try {
       console.log('[Login] Attempting login with email:', email);
-      await login(email, password);
-      // The redirect happens in the auth provider
+      const success = await login(email, password);
+      
+      if (!success) {
+        setFormError('Credenciais inválidas');
+      }
+      // O redirecionamento acontece no hook de autenticação
     } catch (error) {
       console.error('[Login] Login error:', error);
       setFormError('Erro ao fazer login');
@@ -121,12 +124,12 @@ const Login = () => {
         <div className="text-center text-sm text-muted-foreground">
           <p>Contas de demonstração:</p>
           <div className="flex flex-wrap justify-center gap-2 mt-2">
-            <code className="bg-secondary px-2 py-1 rounded text-xs">admin@example.com</code>
-            <code className="bg-secondary px-2 py-1 rounded text-xs">seller@example.com</code>
-            <code className="bg-secondary px-2 py-1 rounded text-xs">client@example.com</code>
-            <code className="bg-secondary px-2 py-1 rounded text-xs">company@example.com</code>
+            <code className="bg-secondary px-2 py-1 rounded text-xs">admin@emplacadora.com</code>
+            <code className="bg-secondary px-2 py-1 rounded text-xs">vendedor@emplacadora.com</code>
+            <code className="bg-secondary px-2 py-1 rounded text-xs">cliente@emplacadora.com</code>
+            <code className="bg-secondary px-2 py-1 rounded text-xs">empresa@emplacadora.com</code>
           </div>
-          <p className="mt-1">Senha para todas as contas: <code className="bg-secondary px-2 py-1 rounded text-xs">password</code></p>
+          <p className="mt-1">Senha para todas as contas: <code className="bg-secondary px-2 py-1 rounded text-xs">123456</code></p>
         </div>
       </div>
     </div>

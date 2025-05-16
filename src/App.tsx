@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SupabaseInitializer from "@/components/SupabaseInitializer";
 
 // Pages
 import Login from "./pages/Login";
@@ -19,7 +20,7 @@ import AdminClients from "./pages/admin/Clients";
 import AdminSellers from "./pages/admin/Sellers";
 import AdminInventory from "./pages/admin/Inventory";
 import AdminSettings from "./pages/admin/Settings";
-import AdminVehicles from "./pages/admin/Vehicles"; // Added import
+import AdminVehicles from "./pages/admin/Vehicles";
 
 // Seller Pages
 import SellerDashboard from "./pages/vendedor/Dashboard";
@@ -27,7 +28,7 @@ import SellerOrders from "./pages/vendedor/Orders";
 import SellerClients from "./pages/vendedor/Clients";
 import SellerInventory from "./pages/vendedor/Inventory";
 import SellerSettings from "./pages/vendedor/Settings";
-import SellerVehicles from "./pages/vendedor/Vehicles"; // Added import
+import SellerVehicles from "./pages/vendedor/Vehicles";
 
 // Client Pages
 import ClientDashboard from "./pages/clientes/Dashboard";
@@ -42,6 +43,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
+          <SupabaseInitializer />
           <Toaster />
           <Sonner />
           <Routes>
@@ -149,7 +151,7 @@ const App = () => (
             <Route path="/profile" element={<Navigate to="/client/settings" replace />} />
             
             {/* Redirect root based on role */}
-            <Route path="/" element={<Navigate to="/client/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             
             {/* 404 Page */}
             <Route path="*" element={<NotFound />} />
