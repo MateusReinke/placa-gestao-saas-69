@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'seller' | 'physical' | 'juridical';
+export type UserRole = "admin" | "seller" | "physical" | "juridical";
 
 export interface User {
   id: string;
@@ -14,7 +14,7 @@ export interface Client {
   id: string;
   name: string;
   document: string;
-  type: 'physical' | 'juridical';
+  type: "physical" | "juridical";
   address?: string;
   phone?: string;
   email?: string;
@@ -89,16 +89,27 @@ export interface InventoryItem {
   minQuantity: number;
   costPrice: number;
   category: string;
-  status: 'adequate' | 'low' | 'critical';
+  status: "adequate" | "low" | "critical";
 }
 
 export interface InventoryHistory {
   id: string;
   date: string;
   item: string;
-  movement: 'in' | 'out';
+  movement: "in" | "out";
   quantity: number;
   order?: string;
   responsible: string;
   notes?: string;
+}
+// src/types/index.ts
+
+export interface ServiceType {
+  id: string;
+  name: string;
+  description?: string | null;
+  price: number;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }

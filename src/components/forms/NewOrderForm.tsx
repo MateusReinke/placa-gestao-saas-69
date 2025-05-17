@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
-import { CalendarIcon, Loader2, Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Calendar } from '@/components/ui/calendar';
+import React, { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { CalendarIcon, Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Form,
   FormControl,
@@ -15,25 +15,31 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { useToast } from '@/components/ui/use-toast';
-import { ApiService } from '@/services/api';
-import { useAuth } from '@/contexts/AuthContext';
-import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
-import { Order, OrderStatus, Client, Vehicle, ServiceType } from '@/types';
+} from "@/components/ui/popover";
+import { useToast } from "@/components/ui/use-toast";
+import { ApiService } from "@/services/serviceTypesApi";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  Command,
+  CommandInput,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Order, OrderStatus, Client, Vehicle, ServiceType } from "@/types";
 
 // Schema for the form validation
 const orderSchema = z.object({
@@ -54,10 +60,10 @@ interface NewOrderFormProps {
 const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const isSeller = user?.role === 'seller';
-  const isClient = user?.role === 'physical' || user?.role === 'juridical';
-  
+  const isAdmin = user?.role === "admin";
+  const isSeller = user?.role === "seller";
+  const isClient = user?.role === "physical" || user?.role === "juridical";
+
   // States for the form
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [services, setServices] = useState<ServiceType[]>([]);
@@ -67,34 +73,34 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
   const [clientDialogOpen, setClientDialogOpen] = useState(false);
   const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  
+
   // Form setup with zod validation
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
-      serviceTypeId: '',
-      clientId: isClient ? user?.id || '' : '',
-      licensePlate: '',
-      observations: '',
-      statusId: '',
+      serviceTypeId: "",
+      clientId: isClient ? user?.id || "" : "",
+      licensePlate: "",
+      observations: "",
+      statusId: "",
     },
   });
-  
+
   // Client form states
-  const [newClientName, setNewClientName] = useState('');
-  const [newClientDocument, setNewClientDocument] = useState('');
-  const [newClientPhone, setNewClientPhone] = useState('');
-  const [newClientEmail, setNewClientEmail] = useState('');
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientDocument, setNewClientDocument] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
-  
+
   // Vehicle form states
-  const [newVehicleBrand, setNewVehicleBrand] = useState('');
-  const [newVehicleModel, setNewVehicleModel] = useState('');
-  const [newVehicleYear, setNewVehicleYear] = useState('');
-  const [newVehiclePlate, setNewVehiclePlate] = useState('');
-  const [newVehicleColor, setNewVehicleColor] = useState('');
+  const [newVehicleBrand, setNewVehicleBrand] = useState("");
+  const [newVehicleModel, setNewVehicleModel] = useState("");
+  const [newVehicleYear, setNewVehicleYear] = useState("");
+  const [newVehiclePlate, setNewVehiclePlate] = useState("");
+  const [newVehicleColor, setNewVehicleColor] = useState("");
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
-  
+
   // Fetch initial data on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -103,28 +109,28 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
           ApiService.getServiceTypes(),
           ApiService.getOrderStatuses(),
         ]);
-        
-        setServices(fetchedServices.filter(service => service.active));
-        setStatuses(fetchedStatuses.filter(status => status.active));
-        
+
+        setServices(fetchedServices.filter((service) => service.active));
+        setStatuses(fetchedStatuses.filter((status) => status.active));
+
         // Set default status if available
-        const defaultStatus = fetchedStatuses.find(s => s.order === 1);
+        const defaultStatus = fetchedStatuses.find((s) => s.order === 1);
         if (defaultStatus) {
-          form.setValue('statusId', defaultStatus.id);
+          form.setValue("statusId", defaultStatus.id);
         }
-        
+
         // For clients, fetch their own vehicles
         if (isClient && user?.id) {
           const clientVehicles = await ApiService.getClientVehicles(user.id);
           setVehicles(clientVehicles);
-        } 
+        }
         // For admin/seller, fetch all clients
         else if (isAdmin || isSeller) {
           const fetchedClients = await ApiService.getClients();
-          setClients(fetchedClients.filter(c => c.active !== false));
+          setClients(fetchedClients.filter((c) => c.active !== false));
         }
       } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
+        console.error("Erro ao carregar dados iniciais:", error);
         toast({
           title: "Erro",
           description: "Não foi possível carregar os dados necessários.",
@@ -132,19 +138,21 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         });
       }
     };
-    
+
     fetchData();
   }, [user, isAdmin, isSeller, isClient, form, toast]);
-  
+
   // Fetch vehicles when client is selected
   useEffect(() => {
     const fetchVehicles = async () => {
       if (selectedClientId) {
         try {
-          const clientVehicles = await ApiService.getClientVehicles(selectedClientId);
+          const clientVehicles = await ApiService.getClientVehicles(
+            selectedClientId
+          );
           setVehicles(clientVehicles);
         } catch (error) {
-          console.error('Erro ao carregar veículos:', error);
+          console.error("Erro ao carregar veículos:", error);
           toast({
             title: "Erro",
             description: "Não foi possível carregar os veículos do cliente.",
@@ -155,22 +163,22 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         setVehicles([]);
       }
     };
-    
+
     fetchVehicles();
   }, [selectedClientId, toast]);
-  
+
   // Handle client change
   const handleClientChange = (clientId: string) => {
-    form.setValue('clientId', clientId);
+    form.setValue("clientId", clientId);
     setSelectedClientId(clientId);
-    form.setValue('licensePlate', ''); // Reset vehicle selection
+    form.setValue("licensePlate", ""); // Reset vehicle selection
   };
-  
+
   // Handle vehicle change
   const handleVehicleChange = (licensePlate: string) => {
-    form.setValue('licensePlate', licensePlate);
+    form.setValue("licensePlate", licensePlate);
   };
-  
+
   // Create new client
   const handleCreateClient = async () => {
     if (!newClientName || !newClientDocument) {
@@ -181,37 +189,36 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       });
       return;
     }
-    
+
     setIsSubmittingClient(true);
-    
+
     try {
       const newClient = await ApiService.createClient({
         name: newClientName,
         document: newClientDocument,
         phone: newClientPhone,
         email: newClientEmail,
-        createdBy: user?.id || '',
-        type: 'physical',
+        createdBy: user?.id || "",
+        type: "physical",
       });
-      
-      setClients(prevClients => [...prevClients, newClient]);
-      form.setValue('clientId', newClient.id);
+
+      setClients((prevClients) => [...prevClients, newClient]);
+      form.setValue("clientId", newClient.id);
       setSelectedClientId(newClient.id);
-      
+
       // Reset form
-      setNewClientName('');
-      setNewClientDocument('');
-      setNewClientPhone('');
-      setNewClientEmail('');
+      setNewClientName("");
+      setNewClientDocument("");
+      setNewClientPhone("");
+      setNewClientEmail("");
       setClientDialogOpen(false);
-      
+
       toast({
         title: "Cliente adicionado",
         description: "Cliente criado com sucesso",
       });
-      
     } catch (error) {
-      console.error('Erro ao criar cliente:', error);
+      console.error("Erro ao criar cliente:", error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o cliente.",
@@ -221,7 +228,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       setIsSubmittingClient(false);
     }
   };
-  
+
   // Create new vehicle
   const handleCreateVehicle = async () => {
     if (!newVehiclePlate || !newVehicleModel || !selectedClientId) {
@@ -232,9 +239,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       });
       return;
     }
-    
+
     setIsSubmittingVehicle(true);
-    
+
     try {
       const newVehicle = await ApiService.createVehicle({
         brand: newVehicleBrand,
@@ -244,25 +251,24 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
         color: newVehicleColor,
         clientId: selectedClientId,
       });
-      
-      setVehicles(prevVehicles => [...prevVehicles, newVehicle]);
-      form.setValue('licensePlate', newVehiclePlate);
-      
+
+      setVehicles((prevVehicles) => [...prevVehicles, newVehicle]);
+      form.setValue("licensePlate", newVehiclePlate);
+
       // Reset form
-      setNewVehicleBrand('');
-      setNewVehicleModel('');
-      setNewVehicleYear('');
-      setNewVehiclePlate('');
-      setNewVehicleColor('');
+      setNewVehicleBrand("");
+      setNewVehicleModel("");
+      setNewVehicleYear("");
+      setNewVehiclePlate("");
+      setNewVehicleColor("");
       setVehicleDialogOpen(false);
-      
+
       toast({
         title: "Veículo adicionado",
         description: "Veículo criado com sucesso",
       });
-      
     } catch (error) {
-      console.error('Erro ao criar veículo:', error);
+      console.error("Erro ao criar veículo:", error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o veículo.",
@@ -272,50 +278,51 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       setIsSubmittingVehicle(false);
     }
   };
-  
+
   // Handle form submission
   const onSubmit = async (data: OrderFormValues) => {
     setIsSubmitting(true);
-    
+
     try {
       // Get default status if not provided (for client role)
       let statusToUse = data.statusId;
       if (!statusToUse && statuses.length > 0) {
-        const defaultStatus = statuses.find(s => s.order === 1);
+        const defaultStatus = statuses.find((s) => s.order === 1);
         if (defaultStatus) {
           statusToUse = defaultStatus.id;
         }
       }
-      
+
       // Create order object
       const orderData = {
         serviceTypeId: data.serviceTypeId,
-        clientId: isClient ? user?.id || '' : data.clientId,
+        clientId: isClient ? user?.id || "" : data.clientId,
         licensePlate: data.licensePlate,
-        notes: data.observations || '',
-        estimatedDeliveryDate: data.expectedDeliveryDate ? format(data.expectedDeliveryDate, 'yyyy-MM-dd') : undefined,
-        statusId: statusToUse || '',
+        notes: data.observations || "",
+        estimatedDeliveryDate: data.expectedDeliveryDate
+          ? format(data.expectedDeliveryDate, "yyyy-MM-dd")
+          : undefined,
+        statusId: statusToUse || "",
         value: 0, // Default value as required by the type
-        createdBy: user?.id || '', // Required by the type
+        createdBy: user?.id || "", // Required by the type
       };
-      
+
       // Save order
       const createdOrder = await ApiService.createOrder(orderData);
-      
+
       toast({
         title: "Pedido criado",
         description: "Pedido criado com sucesso",
       });
-      
+
       if (onSuccess) {
         onSuccess(createdOrder);
       }
-      
+
       // Reset form
       form.reset();
-      
     } catch (error) {
-      console.error('Erro ao criar pedido:', error);
+      console.error("Erro ao criar pedido:", error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o pedido.",
@@ -325,7 +332,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       setIsSubmitting(false);
     }
   };
-  
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -348,7 +355,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                       )}
                     >
                       {field.value
-                        ? services.find((service) => service.id === field.value)?.name
+                        ? services.find((service) => service.id === field.value)
+                            ?.name
                         : "Selecione um serviço"}
                     </Button>
                   </FormControl>
@@ -400,7 +408,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             )}
                           >
                             {field.value
-                              ? clients.find((client) => client.id === field.value)?.name
+                              ? clients.find(
+                                  (client) => client.id === field.value
+                                )?.name
                               : "Selecione um cliente"}
                           </Button>
                         </FormControl>
@@ -408,7 +418,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                       <PopoverContent className="p-0">
                         <Command>
                           <CommandInput placeholder="Buscar cliente..." />
-                          <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                          <CommandEmpty>
+                            Nenhum cliente encontrado.
+                          </CommandEmpty>
                           <CommandGroup>
                             {clients.map((client) => (
                               <CommandItem
@@ -425,7 +437,10 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                         </Command>
                       </PopoverContent>
                     </Popover>
-                    <Dialog open={clientDialogOpen} onOpenChange={setClientDialogOpen}>
+                    <Dialog
+                      open={clientDialogOpen}
+                      onOpenChange={setClientDialogOpen}
+                    >
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon">
                           <Plus className="h-4 w-4" />
@@ -450,7 +465,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             <Input
                               id="document"
                               value={newClientDocument}
-                              onChange={(e) => setNewClientDocument(e.target.value)}
+                              onChange={(e) =>
+                                setNewClientDocument(e.target.value)
+                              }
                               placeholder="CPF ou CNPJ"
                             />
                           </div>
@@ -459,7 +476,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             <Input
                               id="phone"
                               value={newClientPhone}
-                              onChange={(e) => setNewClientPhone(e.target.value)}
+                              onChange={(e) =>
+                                setNewClientPhone(e.target.value)
+                              }
                               placeholder="Telefone"
                             />
                           </div>
@@ -469,14 +488,20 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                               id="email"
                               type="email"
                               value={newClientEmail}
-                              onChange={(e) => setNewClientEmail(e.target.value)}
+                              onChange={(e) =>
+                                setNewClientEmail(e.target.value)
+                              }
                               placeholder="Email"
                             />
                           </div>
                         </div>
-                        <Button 
-                          onClick={handleCreateClient} 
-                          disabled={isSubmittingClient || !newClientName || !newClientDocument}
+                        <Button
+                          onClick={handleCreateClient}
+                          disabled={
+                            isSubmittingClient ||
+                            !newClientName ||
+                            !newClientDocument
+                          }
                         >
                           {isSubmittingClient ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -490,18 +515,38 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                 </FormItem>
               )}
             />
-            
+
             {selectedClientId && clients.length > 0 && (
               <div className="rounded-md border p-4 bg-muted/20">
-                <h4 className="text-sm font-medium mb-2">Informações do Cliente</h4>
+                <h4 className="text-sm font-medium mb-2">
+                  Informações do Cliente
+                </h4>
                 {(() => {
-                  const selectedClient = clients.find(c => c.id === selectedClientId);
+                  const selectedClient = clients.find(
+                    (c) => c.id === selectedClientId
+                  );
                   return selectedClient ? (
                     <div className="space-y-1 text-sm">
-                      <p><span className="font-medium">Nome:</span> {selectedClient.name}</p>
-                      <p><span className="font-medium">Documento:</span> {selectedClient.document}</p>
-                      {selectedClient.phone && <p><span className="font-medium">Telefone:</span> {selectedClient.phone}</p>}
-                      {selectedClient.email && <p><span className="font-medium">Email:</span> {selectedClient.email}</p>}
+                      <p>
+                        <span className="font-medium">Nome:</span>{" "}
+                        {selectedClient.name}
+                      </p>
+                      <p>
+                        <span className="font-medium">Documento:</span>{" "}
+                        {selectedClient.document}
+                      </p>
+                      {selectedClient.phone && (
+                        <p>
+                          <span className="font-medium">Telefone:</span>{" "}
+                          {selectedClient.phone}
+                        </p>
+                      )}
+                      {selectedClient.email && (
+                        <p>
+                          <span className="font-medium">Email:</span>{" "}
+                          {selectedClient.email}
+                        </p>
+                      )}
                     </div>
                   ) : null;
                 })()}
@@ -509,7 +554,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
             )}
           </div>
         )}
-        
+
         {/* Vehicle Selection */}
         <FormField
           control={form.control}
@@ -531,19 +576,19 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                         )}
                       >
                         {field.value
-                          ? vehicles.find((vehicle) => vehicle.licensePlate === field.value)?.model || field.value
-                          : (isAdmin || isSeller) && !selectedClientId 
-                              ? "Selecione um cliente primeiro"
-                              : "Selecione um veículo"}
+                          ? vehicles.find(
+                              (vehicle) => vehicle.licensePlate === field.value
+                            )?.model || field.value
+                          : (isAdmin || isSeller) && !selectedClientId
+                          ? "Selecione um cliente primeiro"
+                          : "Selecione um veículo"}
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="p-0">
                     <Command>
                       <CommandInput placeholder="Buscar veículo..." />
-                      <CommandEmpty>
-                        Nenhum veículo encontrado.
-                      </CommandEmpty>
+                      <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
                       <CommandGroup>
                         {vehicles.map((vehicle) => (
                           <CommandItem
@@ -553,7 +598,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                               handleVehicleChange(vehicle.licensePlate);
                             }}
                           >
-                            {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
+                            {vehicle.brand} {vehicle.model} -{" "}
+                            {vehicle.licensePlate}
                             {vehicle.color && ` (${vehicle.color})`}
                           </CommandItem>
                         ))}
@@ -562,7 +608,10 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                   </PopoverContent>
                 </Popover>
                 {(selectedClientId || isClient) && (
-                  <Dialog open={vehicleDialogOpen} onOpenChange={setVehicleDialogOpen}>
+                  <Dialog
+                    open={vehicleDialogOpen}
+                    onOpenChange={setVehicleDialogOpen}
+                  >
                     <DialogTrigger asChild>
                       <Button variant="outline" size="icon">
                         <Plus className="h-4 w-4" />
@@ -597,7 +646,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             <Input
                               id="year"
                               value={newVehicleYear}
-                              onChange={(e) => setNewVehicleYear(e.target.value)}
+                              onChange={(e) =>
+                                setNewVehicleYear(e.target.value)
+                              }
                               placeholder="Ano"
                             />
                           </div>
@@ -606,7 +657,9 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             <Input
                               id="color"
                               value={newVehicleColor}
-                              onChange={(e) => setNewVehicleColor(e.target.value)}
+                              onChange={(e) =>
+                                setNewVehicleColor(e.target.value)
+                              }
                               placeholder="Cor"
                             />
                           </div>
@@ -621,9 +674,13 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                           />
                         </div>
                       </div>
-                      <Button 
-                        onClick={handleCreateVehicle} 
-                        disabled={isSubmittingVehicle || !newVehicleModel || !newVehiclePlate}
+                      <Button
+                        onClick={handleCreateVehicle}
+                        disabled={
+                          isSubmittingVehicle ||
+                          !newVehicleModel ||
+                          !newVehiclePlate
+                        }
                       >
                         {isSubmittingVehicle ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -721,7 +778,8 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                         )}
                       >
                         {field.value
-                          ? statuses.find((status) => status.id === field.value)?.name
+                          ? statuses.find((status) => status.id === field.value)
+                              ?.name
                           : "Selecione um status"}
                       </Button>
                     </FormControl>
@@ -740,7 +798,7 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                             }}
                           >
                             <div className="flex items-center">
-                              <div 
+                              <div
                                 className={`h-3 w-3 rounded-full mr-2 bg-${status.color}-500`}
                               ></div>
                               {status.name}
