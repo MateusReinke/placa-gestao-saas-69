@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Table,
@@ -138,7 +139,9 @@ const Services = () => {
 
       if (error) throw error;
 
-      setServices(data || []);
+      // Ensure data matches the ServiceType interface
+      const typedData = (data || []) as ServiceType[];
+      setServices(typedData);
     } catch (error) {
       console.error('Erro ao buscar serviços:', error);
       toast({
@@ -288,7 +291,7 @@ const Services = () => {
       // Make sure 'active' is always included
       const updatedData = {
         ...data,
-        active: data.active ?? true, // Default to true if not provided
+        active: typeof data.active === 'boolean' ? data.active : true, // Ensure active is a boolean
       };
       
       const { error } = await supabase
@@ -297,11 +300,16 @@ const Services = () => {
         .eq('id', id);
         
       if (error) throw error;
-      toast.success('Serviço atualizado com sucesso!');
+      toast({
+        title: 'Serviço atualizado com sucesso!'
+      });
       fetchServices();
     } catch (error) {
       console.error('Erro ao atualizar serviço:', error);
-      toast.error('Erro ao atualizar serviço');
+      toast({
+        title: 'Erro ao atualizar serviço',
+        variant: 'destructive'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -365,8 +373,8 @@ const Services = () => {
                 <Checkbox
                   checked={service.active}
                   onCheckedChange={(checked) => {
-                    if (checked !== undefined) {
-                      updateService(service.id, { active: checked });
+                    if (typeof checked !== 'undefined') {
+                      updateService(service.id, { active: !!checked });
                     }
                   }}
                 />
