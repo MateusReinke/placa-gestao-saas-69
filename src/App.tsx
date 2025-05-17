@@ -28,13 +28,11 @@ import SellerClients from "./pages/vendedor/Clients";
 import SellerInventory from "./pages/vendedor/Inventory";
 import SellerSettings from "./pages/vendedor/Settings";
 import SellerVehicles from "./pages/vendedor/Vehicles";
-import SellerServices from "./pages/vendedor/Services"; // Importando a página de serviços do vendedor
 
 // Client Pages (certifique-se que todos exportam default)
 import ClientDashboard from "./pages/clientes/Dashboard";
 import ClientOrders from "./pages/clientes/Orders";
 import ClientVehicles from "./pages/clientes/Vehicles";
-import ClientServices from "./pages/clientes/Services"; // Importando a página de serviços do cliente
 
 // Cria o QueryClient (react-query)
 const queryClient = new QueryClient();
@@ -166,14 +164,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/seller/services"
-              element={
-                <ProtectedRoute allowedRoles={["admin", "seller"]}>
-                  <SellerServices />
-                </ProtectedRoute>
-              }
-            />
 
             {/* Client Routes */}
             <Route
@@ -203,16 +193,6 @@ const App = () => (
                   allowedRoles={["admin", "seller", "physical", "juridical"]}
                 >
                   <ClientVehicles />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/client/services"
-              element={
-                <ProtectedRoute
-                  allowedRoles={["admin", "seller", "physical", "juridical"]}
-                >
-                  <ClientServices />
                 </ProtectedRoute>
               }
             />

@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -6,7 +5,7 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
-import { supabase, safelyParseRole } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 type UserProfile = {
@@ -53,13 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (profile && !error) {
-      // Use the safe parser to ensure role is properly typed
-      const safeProfile: UserProfile = {
-        ...profile,
-        role: safelyParseRole(profile.role)
-      };
-      
-      setUser(safeProfile);
+      setUser(profile);
       setIsAuthenticated(true);
     } else {
       setUser(null);
@@ -119,13 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .single();
 
     if (profile && !profileError) {
-      // Use the safe parser to ensure role is properly typed
-      const safeProfile: UserProfile = {
-        ...profile,
-        role: safelyParseRole(profile.role)
-      };
-      
-      setUser(safeProfile);
+      setUser(profile);
       setIsAuthenticated(true);
       setLoading(false);
       return true;
