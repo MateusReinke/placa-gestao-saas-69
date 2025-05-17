@@ -1,70 +1,146 @@
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
-import React, { createContext, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
-import { User, UserRole } from '@/types';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "seller" | "physical" | "juridical";
+  [key: string]: any;
+};
 
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
   loading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isAuthenticated: false,
+  loading: false,
+  login: async () => false,
+  logout: async () => {},
+});
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const location = useLocation();
-  const { 
-    user, 
-    userDetails, 
-    isAuthenticated, 
-    loading, 
-    login, 
-    logout, 
-    redirectBasedOnRole 
-  } = useSupabaseAuth();
-  
-  // Debug helper function
-  const logAuthState = (message: string, data?: any) => {
-    console.log(`[Auth] ${message}`, data || '');
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Busca o perfil do usuário
+  const fetchUserProfile = async (supabaseUser: any) => {
+    if (!supabaseUser) {
+      setUser(null);
+      setIsAuthenticated(false);
+      return;
+    }
+    const { data: profile, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", supabaseUser.id)
+      .single();
+
+    if (profile && !error) {
+      setUser(profile);
+      setIsAuthenticated(true);
+    } else {
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
-  
-  // Verifica se tem dados do usuário para construir o objeto User
-  const currentUser: User | null = userDetails 
-    ? {
-        id: user?.id || '',
-        name: userDetails.name,
-        email: userDetails.email,
-        role: userDetails.role,
-        phone: userDetails.phone,
-        document: userDetails.document,
-        photo: userDetails.photo
+
+  // Restaura sessão ao carregar a aplicação
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        await fetchUserProfile(session.user);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
       }
-    : null;
-  
-  // Quando o usuário está autenticado e estamos na página de login, redireciona para o dashboard
-  if (isAuthenticated && userDetails && location.pathname === '/login') {
-    logAuthState('Usuário autenticado na página de login, redirecionando:', userDetails.role);
-    redirectBasedOnRole(userDetails.role);
-  }
-  
-  const value = {
-    user: currentUser,
-    isAuthenticated,
-    login,
-    logout,
-    loading
+      setLoading(false);
+    };
+    init();
+
+    // Atualiza perfil em caso de login/logout em outras abas
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          fetchUserProfile(session.user);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      }
+    );
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Função de login
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error || !data.user) {
+      setLoading(false);
+      return false;
+    }
+    // Busca perfil do usuário
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profile && !profileError) {
+      setUser(profile);
+      setIsAuthenticated(true);
+      setLoading(false);
+      return true;
+    } else {
+      setUser(null);
+      setIsAuthenticated(false);
+      setLoading(false);
+      return false;
+    }
   };
-  
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+
+  // Função de logout
+  const logout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsAuthenticated(false);
+    setLoading(false);
+    navigate("/login");
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, loading, login, logout }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);
