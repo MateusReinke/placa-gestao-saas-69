@@ -1,5 +1,6 @@
 
 import { createClient } from "@supabase/supabase-js";
+import { ApiService } from "@/integrations/supabase/client"; // Import ApiService from the proper file
 
 // Access environment variables using import.meta.env
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -21,3 +22,5 @@ export const safelyParseRole = (role: string): "admin" | "seller" | "physical" |
   return "physical"; // Default fallback role
 };
 
+// Re-export ApiService for backwards compatibility
+export { ApiService };

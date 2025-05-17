@@ -1,14 +1,12 @@
 
-// src/integrations/supabase/client.ts
-
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-// Usa variáveis de ambiente (do .env) para máxima segurança e flexibilidade!
+// Use environment variables for maximum security and flexibility
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// O tipo <Database> é opcional, só inclua se estiver usando types autogerados
+// The <Database> type is optional, only include if using auto-generated types
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 /**
@@ -24,10 +22,10 @@ export const safelyParseRole = (role: string): "admin" | "seller" | "physical" |
   return "physical"; // Default fallback role
 };
 
-// API Service mock para compatibilidade com o código existente
-// Esta é uma solução temporária para resolver erros de compilação
+// API Service for compatibility with existing code
+// This is a temporary solution to resolve compilation errors
 export const ApiService = {
-  // Funções relacionadas a clientes
+  // Client-related functions
   getClients: async () => {
     const { data, error } = await supabase.from('clients').select('*');
     if (error) throw error;
@@ -40,7 +38,7 @@ export const ApiService = {
     return data;
   },
 
-  // Funções relacionadas a pedidos
+  // Order-related functions
   getOrders: async () => {
     const { data, error } = await supabase.from('orders').select('*');
     if (error) throw error;
@@ -71,7 +69,7 @@ export const ApiService = {
     return data;
   },
 
-  // Funções relacionadas a veículos
+  // Vehicle-related functions
   getClientVehicles: async (clientId: string) => {
     const { data, error } = await supabase.from('vehicles').select('*').eq('client_id', clientId);
     if (error) throw error;
@@ -84,9 +82,9 @@ export const ApiService = {
     return data;
   },
 
-  // Funções relacionadas ao dashboard
+  // Dashboard-related functions
   getDashboardStats: async () => {
-    // Simulação de dados do dashboard
+    // Simulation of dashboard data
     return {
       totalOrders: 0,
       totalClients: 0,
@@ -98,5 +96,5 @@ export const ApiService = {
   }
 };
 
-// Exporta o ApiService para ser usado em outros componentes
-export { ApiService };
+// Remove the second export of ApiService
+// This was causing the error
