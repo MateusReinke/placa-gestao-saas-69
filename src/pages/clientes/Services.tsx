@@ -1,9 +1,10 @@
 
 /* -------------------------------------------------------------------------- */
-/*  Vendedor – Serviços (somente leitura)                                     */
+/*  Cliente – Serviços (visualização + solicitação)                           */
 /* -------------------------------------------------------------------------- */
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layouts/AppLayout";
 
 import {
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
-import { Table, LayoutGrid } from "lucide-react";
+import { Table, LayoutGrid, PlusCircle } from "lucide-react";
 
 /* ----------------------------- Utilidades --------------------------------- */
 const categoryName = (id: string, all: ServiceCategory[]) =>
@@ -26,16 +27,17 @@ const categoryName = (id: string, all: ServiceCategory[]) =>
 
 /* -------------------------------------------------------------------------- */
 
-const VendedorServices: React.FC = () => {
+const ClienteServices: React.FC = () => {
   /* estado */
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [services, setServices] = useState<ServiceType[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
   /* UI */
   const [filter, setFilter] = useState("");
-  const [view, setView] = useState<"table" | "cards">("table");
+  const [view, setView] = useState<"table" | "cards">("cards");
 
   /* ------------------------------ Load ----------------------------------- */
   useEffect(() => {
@@ -47,7 +49,8 @@ const VendedorServices: React.FC = () => {
           ApiService.getServiceTypes(),
           CategoryService.getCategories(),
         ]);
-        setServices(srv);
+        // Filtrar apenas serviços ativos
+        setServices(srv.filter(s => s.active));
         setCategories(cat);
       } catch {
         toast({
@@ -71,6 +74,11 @@ const VendedorServices: React.FC = () => {
     );
   }, [filter, services, categories]);
 
+  /* --------------- Navegação para criar novo pedido --------------------- */
+  const solicitarServico = (serviceId: string) => {
+    navigate(`/client/orders/new?serviceId=${serviceId}`);
+  };
+
   /* ----------------------------- Render ---------------------------------- */
   if (loading) {
     return (
@@ -86,9 +94,12 @@ const VendedorServices: React.FC = () => {
         {/* Cabeçalho */}
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Consultar Serviços</h1>
+            <h1 className="text-3xl font-bold">Serviços Disponíveis</h1>
+            <p className="text-muted-foreground">
+              Conheça nossos serviços e solicite um orçamento
+            </p>
             <Input
-              placeholder="Filtrar por nome ou categoria…"
+              placeholder="Buscar serviço ou categoria…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="max-w-xs"
@@ -124,7 +135,7 @@ const VendedorServices: React.FC = () => {
                   <th className="px-4 py-3">Preço</th>
                   <th className="px-4 py-3">Descrição</th>
                   <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Ações</th>
                 </tr>
               </thead>
 
@@ -150,15 +161,13 @@ const VendedorServices: React.FC = () => {
                       {categoryName(s.category_id, categories)}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          s.active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
+                      <Button
+                        onClick={() => solicitarServico(s.id)}
+                        className="gap-2"
+                        size="sm"
                       >
-                        {s.active ? "Ativo" : "Inativo"}
-                      </span>
+                        <PlusCircle className="h-4 w-4" /> Solicitar
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -179,29 +188,26 @@ const VendedorServices: React.FC = () => {
             {filtered.map((s) => (
               <li
                 key={s.id}
-                className="border rounded-lg p-4 bg-card space-y-1"
+                className="border rounded-lg p-4 bg-card space-y-3 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{s.name}</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      s.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {s.active ? "Ativo" : "Inativo"}
-                  </span>
+                <div>
+                  <span className="font-semibold text-lg">{s.name}</span>
+                  <p className="text-sm text-muted-foreground">
+                    {categoryName(s.category_id, categories)}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {categoryName(s.category_id, categories)}
-                </p>
                 <p className="text-sm">{s.description || "—"}</p>
-                <p className="font-medium">
+                <p className="font-medium text-lg">
                   {`R$ ${Number(s.price).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                   })}`}
                 </p>
+                <Button
+                  onClick={() => solicitarServico(s.id)}
+                  className="w-full gap-2"
+                >
+                  <PlusCircle className="h-4 w-4" /> Solicitar Serviço
+                </Button>
               </li>
             ))}
           </ul>
@@ -211,4 +217,4 @@ const VendedorServices: React.FC = () => {
   );
 };
 
-export default VendedorServices;
+export default ClienteServices;

@@ -301,32 +301,64 @@ export type Database = {
           },
         ]
       }
+      service_categories: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       service_types: {
         Row: {
           active: boolean | null
+          category_id: string
           created_at: string | null
           description: string | null
           id: string
           name: string
+          price: number | null
           updated_at: string | null
         }
         Insert: {
           active?: boolean | null
+          category_id: string
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
+          price?: number | null
           updated_at?: string | null
         }
         Update: {
           active?: boolean | null
+          category_id?: string
           created_at?: string | null
           description?: string | null
           id?: string
           name?: string
+          price?: number | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_service_types_category"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {
