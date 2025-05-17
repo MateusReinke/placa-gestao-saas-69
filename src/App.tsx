@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,11 +29,13 @@ import SellerClients from "./pages/vendedor/Clients";
 import SellerInventory from "./pages/vendedor/Inventory";
 import SellerSettings from "./pages/vendedor/Settings";
 import SellerVehicles from "./pages/vendedor/Vehicles";
+import SellerServices from "./pages/vendedor/Services";
 
 // Client Pages (certifique-se que todos exportam default)
 import ClientDashboard from "./pages/clientes/Dashboard";
 import ClientOrders from "./pages/clientes/Orders";
 import ClientVehicles from "./pages/clientes/Vehicles";
+import ClientServices from "./pages/clientes/Services";
 
 // Cria o QueryClient (react-query)
 const queryClient = new QueryClient();
@@ -125,6 +128,14 @@ const App = () => (
               }
             />
             <Route
+              path="/seller/services"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "seller"]}>
+                  <SellerServices />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/seller/orders"
               element={
                 <ProtectedRoute allowedRoles={["admin", "seller"]}>
@@ -173,6 +184,16 @@ const App = () => (
                   allowedRoles={["admin", "seller", "physical", "juridical"]}
                 >
                   <ClientDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/client/services"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["admin", "seller", "physical", "juridical"]}
+                >
+                  <ClientServices />
                 </ProtectedRoute>
               }
             />

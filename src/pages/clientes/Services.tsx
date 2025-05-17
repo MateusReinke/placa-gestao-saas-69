@@ -1,6 +1,6 @@
 
 /* -------------------------------------------------------------------------- */
-/*  Vendedor – Serviços (somente leitura)                                     */
+/*  Cliente – Serviços (somente leitura)                                      */
 /* -------------------------------------------------------------------------- */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -26,7 +26,7 @@ const categoryName = (id: string, all: ServiceCategory[]) =>
 
 /* -------------------------------------------------------------------------- */
 
-const VendedorServices: React.FC = () => {
+const ClienteServices: React.FC = () => {
   /* estado */
   const { toast } = useToast();
   const [services, setServices] = useState<ServiceType[]>([]);
@@ -35,7 +35,7 @@ const VendedorServices: React.FC = () => {
 
   /* UI */
   const [filter, setFilter] = useState("");
-  const [view, setView] = useState<"table" | "cards">("table");
+  const [view, setView] = useState<"table" | "cards">("cards"); // Padrão para cards na visão do cliente
 
   /* ------------------------------ Load ----------------------------------- */
   useEffect(() => {
@@ -47,7 +47,8 @@ const VendedorServices: React.FC = () => {
           ApiService.getServiceTypes(),
           CategoryService.getCategories(),
         ]);
-        setServices(srv);
+        // Filtragem: apenas serviços ativos para clientes
+        setServices(srv.filter(s => s.active));
         setCategories(cat);
       } catch {
         toast({
@@ -86,7 +87,7 @@ const VendedorServices: React.FC = () => {
         {/* Cabeçalho */}
         <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Consultar Serviços</h1>
+            <h1 className="text-3xl font-bold">Nossos Serviços</h1>
             <Input
               placeholder="Filtrar por nome ou categoria…"
               value={filter}
@@ -124,14 +125,13 @@ const VendedorServices: React.FC = () => {
                   <th className="px-4 py-3">Preço</th>
                   <th className="px-4 py-3">Descrição</th>
                   <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y">
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-8 text-muted-foreground">
+                    <td colSpan={4} className="py-8 text-muted-foreground">
                       Nenhum serviço encontrado.
                     </td>
                   </tr>
@@ -148,17 +148,6 @@ const VendedorServices: React.FC = () => {
                     <td className="px-4 py-3">{s.description || "—"}</td>
                     <td className="px-4 py-3">
                       {categoryName(s.category_id, categories)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          s.active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {s.active ? "Ativo" : "Inativo"}
-                      </span>
                     </td>
                   </tr>
                 ))}
@@ -183,25 +172,17 @@ const VendedorServices: React.FC = () => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">{s.name}</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      s.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {s.active ? "Ativo" : "Inativo"}
-                  </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {categoryName(s.category_id, categories)}
                 </p>
                 <p className="text-sm">{s.description || "—"}</p>
-                <p className="font-medium">
+                <p className="font-bold text-lg">
                   {`R$ ${Number(s.price).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
                   })}`}
                 </p>
+                <Button className="w-full mt-2">Solicitar Orçamento</Button>
               </li>
             ))}
           </ul>
@@ -211,4 +192,4 @@ const VendedorServices: React.FC = () => {
   );
 };
 
-export default VendedorServices;
+export default ClienteServices;

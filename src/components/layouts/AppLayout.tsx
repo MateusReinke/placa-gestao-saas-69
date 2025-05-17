@@ -16,7 +16,8 @@ import {
   Menu,
   Box,
   Car,
-  Archive
+  Archive,
+  Wrench
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -62,7 +63,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           roles: ['admin'],
         },
         {
-          icon: Archive,
+          icon: Wrench,
           name: 'Serviços',
           href: '/admin/services',
           roles: ['admin'],
@@ -116,6 +117,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           roles: ['seller'],
         },
         {
+          icon: Wrench,
+          name: 'Serviços',
+          href: '/seller/services',
+          roles: ['seller'],
+        },
+        {
           icon: ClipboardList,
           name: 'Pedidos',
           href: '/seller/orders',
@@ -155,6 +162,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           icon: LayoutDashboard,
           name: 'Dashboard',
           href: '/client/dashboard',
+          roles: ['physical', 'juridical'],
+        },
+        {
+          icon: Wrench,
+          name: 'Serviços',
+          href: '/client/services',
           roles: ['physical', 'juridical'],
         },
         {
