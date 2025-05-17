@@ -6,8 +6,16 @@ import { ApiService } from "@/integrations/supabase/client"; // Import ApiServic
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Check if environment variables are defined
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Missing Supabase environment variables. Please check your .env file.");
+}
+
 // Create and export the Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(
+  supabaseUrl || "https://tcuxzuabtcfizsaradeh.supabase.co", 
+  supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdXh6dWFidGNmaXpzYXJhZGVoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0MTMzOTYsImV4cCI6MjA2Mjk4OTM5Nn0.bv-6wjp7XhSjaGdnPl3gDJVgT82gxTjFw-22RTBULn4"
+);
 
 /**
  * Type assertion for role strings to ensure they match the required types

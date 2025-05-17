@@ -1,763 +1,500 @@
-// src/pages/admin/Services.tsx
-import React, { useState, useEffect, useMemo } from "react";
-
-import AppLayout from "@/components/layouts/AppLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import React, { useState, useEffect } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from 'sonner'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
 import {
   Form,
+  FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormControl,
   FormMessage,
-} from "@/components/ui/form";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/components/ui/use-toast";
+} from "@/components/ui/form"
+import { Switch } from "@/components/ui/switch"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { supabase } from '@/lib/supabaseClient';
+import { Plus, Pencil, Trash } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Checkbox } from "@/components/ui/checkbox"
+import { useToast } from "@/components/ui/use-toast"
+import { confirm } from "@/components/ui/confirm"
 
-import {
-  PlusCircle,
-  Pencil,
-  Trash2,
-  Check,
-  X,
-  Table,
-  LayoutGrid,
-} from "lucide-react";
-
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-
-import {
-  ApiService,
-  CategoryService,
-  ServiceType,
-  ServiceCategory,
-} from "@/services/serviceTypesApi";
-
-/* --------------------------------------------------------------------- */
-/*              LABELS DE CATEGORIA (apenas fallback em memória)         */
-/* --------------------------------------------------------------------- */
-const labelFromCategory = (c: ServiceCategory | undefined) =>
-  c ? c.name : "—";
-
-/* --------------------------------------------------------------------- */
-/*                                Zod                                    */
-/* --------------------------------------------------------------------- */
+// Define the schema for the form
 const formSchema = z.object({
-  name: z.string().min(3, "Obrigatório"),
+  name: z.string().min(2, {
+    message: "Nome deve ter pelo menos 2 caracteres.",
+  }),
   description: z.string().optional(),
-  price: z.coerce.number().min(0, "Obrigatório"),
-  active: z.boolean().default(true),
-  category_id: z.string().min(1, "Selecione a categoria"),
+  price: z.string().refine((value) => {
+    // Allow empty string
+    if (!value) {
+      return true;
+    }
+    // Check if the value matches the pattern for a number with up to two decimal places
+    return /^\d+(\.\d{1,2})?$/.test(value);
+  }, {
+    message: "Preço deve ser um número válido com até duas casas decimais.",
+  }),
+  active: z.boolean().default(true).optional(),
+  service_category_id: z.string().uuid({ message: "Categoria inválida" }),
 });
 
-/* --------------------------------------------------------------------- */
-/*                            Switch                                     */
-/* --------------------------------------------------------------------- */
-const Switch = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) => (
-  <button
-    type="button"
-    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-      checked ? "bg-green-500" : "bg-gray-400"
-    }`}
-    onClick={() => onChange(!checked)}
-  >
-    <span className="sr-only">toggle</span>
-    <span
-      className={`h-5 w-5 bg-white rounded-full transform transition ${
-        checked ? "translate-x-5" : "translate-x-1"
-      }`}
-    />
-  </button>
-);
+// Define the type for the form values
+type ServiceTypeFormValues = z.infer<typeof formSchema>;
 
-/* --------------------------------------------------------------------- */
-/*                           COMPONENTE                                  */
-/* --------------------------------------------------------------------- */
-const AdminServices = () => {
-  const { toast } = useToast();
+// Define the type for the service data
+export type ServiceType = {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  active: boolean;
+  created_at: string;
+  service_category_id: string;
+  service_categories: {
+    name: string;
+  };
+};
 
-  /* -------------------- dados -------------------- */
+const Services = () => {
   const [services, setServices] = useState<ServiceType[]>([]);
-  const [categories, setCategories] = useState<ServiceCategory[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<{ id: string; name: string; }[]>([]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
+  const [isNewService, setIsNewService] = useState(true);
+  const { toast } = useToast()
 
-  /* -------------------- modal -------------------- */
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-
-  /* -------------------- inline ------------------- */
-  const [editingCell, setEditingCell] = useState<{
-    id: string;
-    field: string;
-  } | null>(null);
-  const [inlineValue, setInlineValue] = useState("");
-
-  /* -------------------- filtros ------------------ */
-  const [view, setView] = useState<"table" | "cards">("table");
-  const [filterName, setFilterName] = useState("");
-
-  /* -------------------- form --------------------- */
-  const form = useForm<z.infer<typeof formSchema>>({
+  // Initialize react-hook-form
+  const form = useForm<ServiceTypeFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",
-      price: 0,
+      price: "",
       active: true,
-      category_id: "",
+      service_category_id: "",
     },
-  });
+    mode: "onChange",
+  })
 
-  /* --------- carregar serviços + categorias ------ */
+  // Function to fetch services from Supabase
+  const fetchServices = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_types')
+        .select(`
+          id,
+          name,
+          description,
+          price,
+          active,
+          created_at,
+          service_category_id,
+          service_categories ( name )
+        `);
+
+      if (error) throw error;
+
+      setServices(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar serviços:', error);
+      toast({
+        title: "Erro ao buscar serviços",
+        description: "Ocorreu um erro ao carregar os serviços. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to format the date
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return format(date, 'dd/MM/yyyy HH:mm:ss', { locale: ptBR });
+  };
+
+  // Function to fetch service categories from Supabase
+  const fetchCategories = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('id, name');
+
+      if (error) throw error;
+
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+      toast({
+        title: "Erro ao buscar categorias",
+        description: "Ocorreu um erro ao carregar as categorias. Por favor, tente novamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // useEffect to fetch services and categories on component mount
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [svc, cat] = await Promise.all([
-          ApiService.getServiceTypes(),
-          CategoryService.getCategories(),
-        ]);
-        setServices(svc);
-        setCategories(cat);
-      } catch {
+    fetchServices();
+    fetchCategories();
+  }, []);
+
+  // Function to handle service creation/edit form submission
+  const onSubmit = async (values: ServiceTypeFormValues) => {
+    setIsLoading(true);
+    try {
+      const price = values.price ? parseFloat(values.price) : null;
+
+      if (isNewService) {
+        // Creating a new service
+        const { error } = await supabase
+          .from('service_types')
+          .insert({
+            name: values.name,
+            description: values.description,
+            price: price,
+            active: values.active,
+            service_category_id: values.service_category_id,
+          });
+
+        if (error) throw error;
+
         toast({
-          title: "Erro",
-          description: "Falha ao buscar dados",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [toast]);
-
-  /* ----------------- filtros simples ------------- */
-  const filtered = useMemo(
-    () =>
-      services.filter((s) =>
-        s.name.toLowerCase().includes(filterName.toLowerCase())
-      ),
-    [services, filterName]
-  );
-
-  /* ---------------- helpers inline --------------- */
-  const startInline = (id: string, field: string, val: string) => {
-    setEditingCell({ id, field });
-    setInlineValue(val);
-  };
-  const cancelInline = () => setEditingCell(null);
-
-  const saveInline = async (id: string, field: string) => {
-    const value =
-      field === "price"
-        ? Number(inlineValue)
-        : field === "category_id"
-        ? inlineValue
-        : inlineValue;
-
-    try {
-      const up = await ApiService.updateServiceType(id, { [field]: value });
-      setServices((v) => v.map((s) => (s.id === id ? { ...s, ...up } : s)));
-      setEditingCell(null);
-    } catch {
-      toast({
-        title: "Erro",
-        description: "Falha ao salvar",
-        variant: "destructive",
-      });
-    }
-  };
-
-  /* ---------------- helpers modal ---------------- */
-  const openDialog = (s?: ServiceType) => {
-    setIsEditMode(!!s);
-    setEditId(s?.id ?? null);
-    form.reset(
-      s ?? {
-        name: "",
-        description: "",
-        price: 0,
-        active: true,
-        category_id: "",
-      }
-    );
-    setIsDialogOpen(true);
-  };
-
-  const submitModal = async (vals: z.infer<typeof formSchema>) => {
-    try {
-      if (editId) {
-        const up = await ApiService.updateServiceType(editId, vals);
-        setServices((v) =>
-          v.map((s) => (s.id === editId ? { ...s, ...up } : s))
-        );
+          title: "Serviço criado com sucesso!",
+        })
       } else {
-        const nw = await ApiService.createServiceType(vals);
-        setServices((v) => [...v, nw]);
+        // Editing an existing service
+        const { error } = await supabase
+          .from('service_types')
+          .update({
+            name: values.name,
+            description: values.description,
+            price: price,
+            active: values.active,
+            service_category_id: values.service_category_id,
+          })
+          .eq('id', selectedService?.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Serviço atualizado com sucesso!",
+        })
       }
-      setIsDialogOpen(false);
-    } catch {
+
+      // Refresh services and close the drawer
+      fetchServices();
+      setIsDrawerOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar serviço:', error);
       toast({
-        title: "Erro",
-        description: "Falha ao salvar",
+        title: "Erro ao salvar serviço",
+        description: "Ocorreu um erro ao salvar o serviço. Por favor, tente novamente.",
         variant: "destructive",
-      });
+      })
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const remove = async (id: string) => {
+  // Function to handle service deletion
+  const deleteService = async (id: string) => {
+    const confirmed = await confirm({
+      title: 'Você tem certeza?',
+      description: 'Esta ação irá deletar o serviço permanentemente. Você tem certeza que quer continuar?',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      await ApiService.deleteServiceType(id);
-      setServices((v) => v.filter((s) => s.id !== id));
-    } catch {
+      const { error } = await supabase
+        .from('service_types')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
       toast({
-        title: "Erro",
-        description: "Falha ao remover",
+        title: "Serviço deletado com sucesso!",
+      })
+
+      // Refresh services
+      fetchServices();
+    } catch (error) {
+      console.error('Erro ao deletar serviço:', error);
+      toast({
+        title: "Erro ao deletar serviço",
+        description: "Ocorreu um erro ao deletar o serviço. Por favor, tente novamente.",
         variant: "destructive",
-      });
+      })
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  /* --------------------- UI ---------------------- */
-  if (loading)
-    return (
-      <AppLayout>
-        <div className="flex justify-center items-center h-60">Carregando…</div>
-      </AppLayout>
-    );
+  const updateService = async (id: string, data: Partial<ServiceType>) => {
+    setIsLoading(true);
+    try {
+      // Make sure 'active' is always included
+      const updatedData = {
+        ...data,
+        active: data.active ?? true, // Default to true if not provided
+      };
+      
+      const { error } = await supabase
+        .from('service_types')
+        .update(updatedData)
+        .eq('id', id);
+        
+      if (error) throw error;
+      toast.success('Serviço atualizado com sucesso!');
+      fetchServices();
+    } catch (error) {
+      console.error('Erro ao atualizar serviço:', error);
+      toast.error('Erro ao atualizar serviço');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to open the drawer in edit mode
+  const openEditDrawer = (service: ServiceType) => {
+    setIsNewService(false);
+    setSelectedService(service);
+    form.reset({
+      name: service.name,
+      description: service.description || "",
+      price: service.price?.toString() || "",
+      active: service.active,
+      service_category_id: service.service_category_id,
+    });
+    setIsDrawerOpen(true);
+  };
+
+  // Function to open the drawer in create mode
+  const openCreateDrawer = () => {
+    setIsNewService(true);
+    setSelectedService(null);
+    form.reset({
+      name: "",
+      description: "",
+      price: "",
+      active: true,
+      service_category_id: "",
+    });
+    setIsDrawerOpen(true);
+  };
 
   return (
-    <AppLayout>
-      <div className="mx-auto max-w-7xl px-3 py-4 space-y-6">
-        {/* Header */}
-        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Gerenciar Serviços</h1>
-            <Input
-              placeholder="Filtrar por nome…"
-              value={filterName}
-              onChange={(e) => setFilterName(e.target.value)}
-              className="max-w-xs"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant={view === "table" ? "secondary" : "outline"}
-              size="icon"
-              onClick={() => setView("table")}
-            >
-              <Table className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === "cards" ? "secondary" : "outline"}
-              size="icon"
-              onClick={() => setView("cards")}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button className="gap-2" onClick={() => openDialog()}>
-              <PlusCircle className="h-4 w-4" /> Novo
-            </Button>
-          </div>
-        </header>
-
-        {/* ---------------- TABLE VIEW ---------------- */}
-        {view === "table" && (
-          <div className="border rounded overflow-x-auto">
-            <table className="min-w-full text-center divide-y">
-              <thead className="bg-muted/50 text-xs uppercase font-semibold">
-                <tr>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Preço</th>
-                  <th className="px-4 py-3">Descrição</th>
-                  <th className="px-4 py-3">Categoria</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-muted-foreground">
-                      Nenhum serviço.
-                    </td>
-                  </tr>
-                )}
-
-                {filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-muted transition">
-                    {/* Nome */}
-                    <td
-                      className="px-4 py-3 cursor-pointer"
-                      onDoubleClick={() => startInline(s.id, "name", s.name)}
-                    >
-                      {editingCell?.id === s.id &&
-                      editingCell.field === "name" ? (
-                        <InlineEdit
-                          value={inlineValue}
-                          setValue={setInlineValue}
-                          save={() => saveInline(s.id, "name")}
-                          cancel={cancelInline}
-                        />
-                      ) : (
-                        s.name
-                      )}
-                    </td>
-
-                    {/* Preço */}
-                    <td
-                      className="px-4 py-3 cursor-pointer"
-                      onDoubleClick={() =>
-                        startInline(s.id, "price", String(s.price))
-                      }
-                    >
-                      {editingCell?.id === s.id &&
-                      editingCell.field === "price" ? (
-                        <InlineEdit
-                          value={inlineValue}
-                          setValue={setInlineValue}
-                          save={() => saveInline(s.id, "price")}
-                          cancel={cancelInline}
-                          isNumber
-                        />
-                      ) : (
-                        `R$ ${Number(s.price).toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}`
-                      )}
-                    </td>
-
-                    {/* Descrição */}
-                    <td
-                      className="px-4 py-3 cursor-pointer"
-                      onDoubleClick={() =>
-                        startInline(s.id, "description", s.description || "")
-                      }
-                    >
-                      {editingCell?.id === s.id &&
-                      editingCell.field === "description" ? (
-                        <InlineEdit
-                          value={inlineValue}
-                          setValue={setInlineValue}
-                          save={() => saveInline(s.id, "description")}
-                          cancel={cancelInline}
-                        />
-                      ) : (
-                        s.description || "—"
-                      )}
-                    </td>
-
-                    {/* Categoria (select inline) */}
-                    <td
-                      className="px-4 py-3 cursor-pointer"
-                      onDoubleClick={() =>
-                        startInline(s.id, "category_id", s.category_id)
-                      }
-                    >
-                      {editingCell?.id === s.id &&
-                      editingCell.field === "category_id" ? (
-                        <InlineSelectEdit
-                          value={inlineValue}
-                          options={categories}
-                          setValue={setInlineValue}
-                          save={() => saveInline(s.id, "category_id")}
-                          cancel={cancelInline}
-                        />
-                      ) : (
-                        labelFromCategory(
-                          categories.find((c) => c.id === s.category_id)
-                        )
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-4 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-semibold cursor-pointer ${
-                          s.active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                        onClick={() =>
-                          ApiService.updateServiceType(s.id, {
-                            active: !s.active,
-                          }).then((u) =>
-                            setServices((v) =>
-                              v.map((x) =>
-                                x.id === s.id ? { ...x, active: u.active } : x
-                              )
-                            )
-                          )
-                        }
-                      >
-                        {s.active ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
-
-                    {/* Ações */}
-                    <td className="px-4 py-3 space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDialog(s)}
-                      >
-                        <Pencil className="h-4 w-4 mr-1" /> {/*Editar */}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2 className="h-4 w-4 mr-1" /> {/*Remover */}
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remover serviço</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Confirmar remoção de "{s.name}"?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => remove(s.id)}>
-                              Remover
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ---------------- CARDS VIEW ---------------- */}
-        {view === "cards" && (
-          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.length === 0 && (
-              <li className="col-span-full text-center text-muted-foreground py-8">
-                Nenhum serviço.
-              </li>
-            )}
-            {filtered.map((s) => (
-              <li
-                key={s.id}
-                className="border rounded-lg p-4 bg-card space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{s.name}</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold cursor-pointer ${
-                      s.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                    onClick={() =>
-                      ApiService.updateServiceType(s.id, {
-                        active: !s.active,
-                      }).then((u) =>
-                        setServices((v) =>
-                          v.map((x) =>
-                            x.id === s.id ? { ...x, active: u.active } : x
-                          )
-                        )
-                      )
-                    }
-                  >
-                    {s.active ? "Ativo" : "Inativo"}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {labelFromCategory(
-                    categories.find((c) => c.id === s.category_id)
-                  )}
-                </p>
-                <p className="text-sm">{s.description || "—"}</p>
-                <p className="font-medium">
-                  {`R$ ${Number(s.price).toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                  })}`}
-                </p>
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => openDialog(s)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        className="flex-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remover serviço</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Confirmar remoção de "{s.name}"?
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => remove(s.id)}>
-                          Remover
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Serviços</h1>
+        <Button onClick={openCreateDrawer}><Plus className="mr-2 h-4 w-4" /> Adicionar Serviço</Button>
       </div>
-
-      {/* -------------------- MODAL -------------------- */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>
-                {isEditMode ? "Editar" : "Novo"} Serviço
-              </DialogTitle>
-              <div className="flex items-center gap-2 ml-6 mt-8">
-                <span
-                  className={
-                    form.watch("active") ? "text-green-600" : "text-red-600"
-                  }
-                >
-                  {form.watch("active") ? "Ativo" : "Inativo"}
-                </span>
-                <Switch
-                  checked={form.watch("active")}
-                  onChange={(v) => form.setValue("active", v)}
+      <Table>
+        <TableCaption>Lista de todos os serviços.</TableCaption>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[100px]">ID</TableHead>
+            <TableHead>Nome</TableHead>
+            <TableHead>Categoria</TableHead>
+            <TableHead>Preço</TableHead>
+            <TableHead>Ativo</TableHead>
+            <TableHead>Criado em</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {services.map((service) => (
+            <TableRow key={service.id}>
+              <TableCell className="font-medium">{service.id}</TableCell>
+              <TableCell>{service.name}</TableCell>
+              <TableCell>{service.service_categories.name}</TableCell>
+              <TableCell>{service.price ? service.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Grátis'}</TableCell>
+              <TableCell>
+                <Checkbox
+                  checked={service.active}
+                  onCheckedChange={(checked) => {
+                    if (checked !== undefined) {
+                      updateService(service.id, { active: checked });
+                    }
+                  }}
                 />
-              </div>
-            </div>
-            <DialogDescription />
-          </DialogHeader>
+              </TableCell>
+              <TableCell>{formatDate(service.created_at)}</TableCell>
+              <TableCell className="text-right">
+                <Button variant="ghost" size="sm" onClick={() => openEditDrawer(service)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => deleteService(service.id)}>
+                  <Trash className="mr-2 h-4 w-4" />
+                  Deletar
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
 
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(submitModal)}
-              className="space-y-4 py-2"
-            >
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço (R$)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="category_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <FormControl>
-                      <select
-                        {...field}
-                        className="
-                        w-full
-                        rounded-md
-                        border
-                        border-border
-                        bg-background
-                        px-3
-                        py-2
-                        text-sm
-                        placeholder:text-muted-foreground
-                        focus:outline-none
-                        focus:ring-2
-                        focus:ring-primary
-                        disabled:opacity-50
-                        disabled:pointer-events-none
-                      "
-                      >
-                        <option value="">Selecione…</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit">
-                  {isEditMode ? "Atualizar" : "Adicionar"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </AppLayout>
+      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{isNewService ? 'Criar Serviço' : 'Editar Serviço'}</DrawerTitle>
+            <DrawerDescription>
+              {isNewService ? 'Crie um novo serviço.' : 'Edite o serviço existente.'}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="p-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Nome do serviço" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Descrição do serviço"
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Preço</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Preço do serviço" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="active"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Ativo</FormLabel>
+                        <FormDescription>
+                          Defina se o serviço está ativo ou não.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="service_category_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categoria</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma categoria" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <DrawerFooter>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (isNewService ? 'Criando...' : 'Salvando...') : (isNewService ? 'Criar' : 'Salvar')}
+                  </Button>
+                </DrawerFooter>
+              </form>
+            </Form>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
 };
 
-/* ---------------- componentes inline ---------------- */
-const InlineEdit = ({
-  value,
-  setValue,
-  save,
-  cancel,
-  isNumber,
-}: {
-  value: string;
-  setValue: (v: string) => void;
-  save: () => void;
-  cancel: () => void;
-  isNumber?: boolean;
-}) => (
-  <div className="flex items-center gap-1 justify-center">
-    <Input
-      type={isNumber ? "number" : "text"}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      className="w-32"
-      autoFocus
-      onKeyDown={(e) => {
-        if (e.key === "Enter") save();
-        if (e.key === "Escape") cancel();
-      }}
-    />
-    <Button size="icon" variant="outline" onClick={save}>
-      <Check className="w-4 h-4" />
-    </Button>
-    <Button size="icon" variant="outline" onClick={cancel}>
-      <X className="w-4 h-4" />
-    </Button>
-  </div>
-);
-
-const InlineSelectEdit = ({
-  value,
-  options,
-  setValue,
-  save,
-  cancel,
-}: {
-  value: string;
-  options: ServiceCategory[];
-  setValue: (v: string) => void;
-  save: () => void;
-  cancel: () => void;
-}) => (
-  <div className="flex items-center gap-1 justify-center">
-    <select
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      className="
-    border
-    rounded-md
-    bg-background
-    px-2
-    py-1
-    text-sm
-    focus:outline-none
-    focus:ring-2
-    focus:ring-primary
-  "
-      autoFocus
-      onKeyDown={(e) => {
-        if (e.key === "Enter") save();
-        if (e.key === "Escape") cancel();
-      }}
-    >
-      {options.map((c) => (
-        <option key={c.id} value={c.id}>
-          {c.name}
-        </option>
-      ))}
-    </select>
-    <Button size="icon" variant="outline" onClick={save}>
-      <Check className="w-4 h-4" />
-    </Button>
-    <Button size="icon" variant="outline" onClick={cancel}>
-      <X className="w-4 h-4" />
-    </Button>
-  </div>
-);
-
-export default AdminServices;
+export default Services;
