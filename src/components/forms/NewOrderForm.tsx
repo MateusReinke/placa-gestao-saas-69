@@ -1,3 +1,5 @@
+// src/components/forms/NewOrderForm.tsx
+
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -29,19 +31,75 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
-import { ApiService } from "@/services/serviceTypesApi";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Command,
   CommandInput,
+  CommandList,
   CommandEmpty,
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Order, OrderStatus, Client, Vehicle, ServiceType } from "@/types";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  FipeService,
+  FipeBrand,
+  FipeModel,
+  FipeYear,
+} from "@/services/fipeApi";
 
-// Schema for the form validation
+// ————— Helper para exibir erros do PostgREST —————
+function showPostgrestError(
+  error: { message: string; code?: string; details?: string; hint?: string },
+  toast: (opts: {
+    title: string;
+    description?: string;
+    variant?: string;
+  }) => void
+) {
+  let description = error.message;
+  if (error.details) description += `\nDetalhes: ${error.details}`;
+  if (error.hint) description += `\nSugestão: ${error.hint}`;
+
+  toast({
+    title: `Erro (code: ${error.code ?? "?"})`,
+    description,
+    variant: "destructive",
+  });
+}
+
+// ————— Tipagens —————————————————————————————————
+type OrderStatus = {
+  id: string;
+  name: string;
+  sort_order: number;
+  color: string;
+  active?: boolean;
+};
+type Client = {
+  id: string;
+  name: string;
+  document: string;
+  phone?: string;
+  email?: string;
+  type?: string;
+  active?: boolean;
+};
+type Vehicle = {
+  id: string;
+  brand: string;
+  model: string;
+  year?: string;
+  license_plate: string;
+  color?: string;
+  renavam?: string | null;
+  client_id: string;
+  plate_type_id: string;
+};
+type ServiceType = { id: string; name: string; active?: boolean };
+type PlateType = { id: string; code: string; label: string; color: string };
+
 const orderSchema = z.object({
   serviceTypeId: z.string({ required_error: "Selecione um serviço" }),
   clientId: z.string({ required_error: "Selecione um cliente" }),
@@ -50,31 +108,21 @@ const orderSchema = z.object({
   expectedDeliveryDate: z.date().optional(),
   statusId: z.string().optional(),
 });
-
 type OrderFormValues = z.infer<typeof orderSchema>;
 
+const colorOptions = ["Branco", "Preto", "Prata", "Vermelho", "Azul", "Outro"];
+
 interface NewOrderFormProps {
-  onSuccess?: (order?: Order) => void;
+  onSuccess?: (order?: any) => void;
 }
 
-const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
+export default function NewOrderForm({ onSuccess }: NewOrderFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isSeller = user?.role === "seller";
-  const isClient = user?.role === "physical" || user?.role === "juridical";
+  const isClient = ["physical", "juridical"].includes(user?.role ?? "");
 
-  // States for the form
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [services, setServices] = useState<ServiceType[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [statuses, setStatuses] = useState<OrderStatus[]>([]);
-  const [clientDialogOpen, setClientDialogOpen] = useState(false);
-  const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-
-  // Form setup with zod validation
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -86,100 +134,173 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
     },
   });
 
-  // Client form states
+  // — States gerais —————————————————————————————————
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [services, setServices] = useState<ServiceType[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [statuses, setStatuses] = useState<OrderStatus[]>([]);
+  const [plateTypes, setPlateTypes] = useState<PlateType[]>([]);
+
+  // — FIPE ————————————————————————————————————————
+  const [brands, setBrands] = useState<FipeBrand[]>([]);
+  const [models, setModels] = useState<FipeModel[]>([]);
+  const [years, setYears] = useState<FipeYear[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedPlateTypeId, setSelectedPlateTypeId] = useState("");
+
+  // — Diálogos ————————————————————————————————————
+  const [clientDialogOpen, setClientDialogOpen] = useState(false);
+  const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
+
+  // — Novo cliente —————————————————————————————
   const [newClientName, setNewClientName] = useState("");
   const [newClientDocument, setNewClientDocument] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
 
-  // Vehicle form states
-  const [newVehicleBrand, setNewVehicleBrand] = useState("");
-  const [newVehicleModel, setNewVehicleModel] = useState("");
-  const [newVehicleYear, setNewVehicleYear] = useState("");
+  // — Novo veículo —————————————————————————————
   const [newVehiclePlate, setNewVehiclePlate] = useState("");
+  const [newVehicleRenavam, setNewVehicleRenavam] = useState("");
   const [newVehicleColor, setNewVehicleColor] = useState("");
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
 
-  // Fetch initial data on mount
+  // — Seleções ————————————————————————————————
+  const [selectedClientId, setSelectedClientId] = useState<string>(
+    isClient ? user?.id || "" : ""
+  );
+
+  // — Carrega dados iniciais —————————————————————
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       try {
-        const [fetchedServices, fetchedStatuses] = await Promise.all([
-          ApiService.getServiceTypes(),
-          ApiService.getOrderStatuses(),
-        ]);
+        // serviços ativos
+        const { data: svc } = await supabase
+          .from("service_types")
+          .select("*")
+          .eq("active", true);
+        setServices(svc ?? []);
 
-        setServices(fetchedServices.filter((service) => service.active));
-        setStatuses(fetchedStatuses.filter((status) => status.active));
+        // statuses
+        const { data: sts } = await supabase
+          .from("order_statuses")
+          .select("*")
+          .order("sort_order", { ascending: true });
+        setStatuses((sts ?? []).filter((s) => s.active !== false));
+        const def = sts?.find((s) => s.sort_order === 1);
+        if (def) form.setValue("statusId", def.id);
 
-        // Set default status if available
-        const defaultStatus = fetchedStatuses.find((s) => s.order === 1);
-        if (defaultStatus) {
-          form.setValue("statusId", defaultStatus.id);
-        }
+        // tipos de placa
+        const { data: pt } = await supabase.from("plate_types").select("*");
+        setPlateTypes(pt ?? []);
 
-        // For clients, fetch their own vehicles
+        // clients / vehicles
         if (isClient && user?.id) {
-          const clientVehicles = await ApiService.getClientVehicles(user.id);
-          setVehicles(clientVehicles);
+          // busca client_id vinculado
+          const { data: c } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1);
+          const cid = c?.[0]?.id;
+          if (cid) {
+            setSelectedClientId(cid);
+            form.setValue("clientId", cid);
+            const { data: v } = await supabase
+              .from("vehicles")
+              .select("*")
+              .eq("client_id", cid);
+            setVehicles(v ?? []);
+          }
+        } else if (isAdmin || isSeller) {
+          const { data: cl } = await supabase
+            .from("clients")
+            .select("*")
+            .eq("active", true);
+          setClients(cl ?? []);
         }
-        // For admin/seller, fetch all clients
-        else if (isAdmin || isSeller) {
-          const fetchedClients = await ApiService.getClients();
-          setClients(fetchedClients.filter((c) => c.active !== false));
-        }
-      } catch (error) {
-        console.error("Erro ao carregar dados iniciais:", error);
-        toast({
-          title: "Erro",
-          description: "Não foi possível carregar os dados necessários.",
-          variant: "destructive",
-        });
+      } catch (err: any) {
+        console.error("Erro ao carregar dados iniciais:", err);
+        showPostgrestError(err, toast);
       }
-    };
+    })();
+  }, [user]);
 
-    fetchData();
-  }, [user, isAdmin, isSeller, isClient, form, toast]);
-
-  // Fetch vehicles when client is selected
+  // — FIPE: Carrega marcas quando abre diálogo —————
   useEffect(() => {
-    const fetchVehicles = async () => {
-      if (selectedClientId) {
-        try {
-          const clientVehicles = await ApiService.getClientVehicles(
-            selectedClientId
-          );
-          setVehicles(clientVehicles);
-        } catch (error) {
-          console.error("Erro ao carregar veículos:", error);
+    if (vehicleDialogOpen) {
+      FipeService.getBrands()
+        .then(setBrands)
+        .catch((err) => {
+          console.error("FIPE getBrands:", err);
           toast({
-            title: "Erro",
-            description: "Não foi possível carregar os veículos do cliente.",
+            title: "Erro FIPE",
+            description: err.message,
             variant: "destructive",
           });
-        }
-      } else {
-        setVehicles([]);
-      }
-    };
+        });
+    }
+  }, [vehicleDialogOpen]);
 
-    fetchVehicles();
-  }, [selectedClientId, toast]);
+  // — FIPE: Modelos & anos ——————————————————————
+  useEffect(() => {
+    if (selectedBrand) {
+      FipeService.getModels(selectedBrand)
+        .then(setModels)
+        .catch((err) => {
+          console.error("FIPE getModels:", err);
+          toast({
+            title: "Erro FIPE",
+            description: err.message,
+            variant: "destructive",
+          });
+        });
+    } else {
+      setModels([]);
+      setSelectedModel("");
+    }
+    setYears([]);
+    setSelectedYear("");
+  }, [selectedBrand]);
 
-  // Handle client change
-  const handleClientChange = (clientId: string) => {
-    form.setValue("clientId", clientId);
-    setSelectedClientId(clientId);
-    form.setValue("licensePlate", ""); // Reset vehicle selection
+  useEffect(() => {
+    if (selectedBrand && selectedModel) {
+      FipeService.getYears(selectedBrand, selectedModel)
+        .then(setYears)
+        .catch((err) => {
+          console.error("FIPE getYears:", err);
+          toast({
+            title: "Erro FIPE",
+            description: err.message,
+            variant: "destructive",
+          });
+        });
+    } else {
+      setYears([]);
+      setSelectedYear("");
+    }
+  }, [selectedBrand, selectedModel]);
+
+  // — Helpers ————————————————————————————————————
+  const handleClientChange = async (cid: string) => {
+    form.setValue("clientId", cid);
+    setSelectedClientId(cid);
+    form.setValue("licensePlate", "");
+    try {
+      const { data: v } = await supabase
+        .from("vehicles")
+        .select("*")
+        .eq("client_id", cid);
+      setVehicles(v ?? []);
+    } catch (err: any) {
+      console.error("Erro ao carregar veículos:", err);
+      showPostgrestError(err, toast);
+    }
   };
 
-  // Handle vehicle change
-  const handleVehicleChange = (licensePlate: string) => {
-    form.setValue("licensePlate", licensePlate);
-  };
-
-  // Create new client
   const handleCreateClient = async () => {
     if (!newClientName || !newClientDocument) {
       toast({
@@ -189,159 +310,141 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       });
       return;
     }
-
     setIsSubmittingClient(true);
-
     try {
-      const newClient = await ApiService.createClient({
-        name: newClientName,
-        document: newClientDocument,
-        phone: newClientPhone,
-        email: newClientEmail,
-        createdBy: user?.id || "",
-        type: "physical",
-      });
-
-      setClients((prevClients) => [...prevClients, newClient]);
-      form.setValue("clientId", newClient.id);
-      setSelectedClientId(newClient.id);
-
-      // Reset form
+      const { data, error } = await supabase
+        .from("clients")
+        .insert([
+          {
+            name: newClientName,
+            document: newClientDocument,
+            phone: newClientPhone,
+            email: newClientEmail,
+            created_by: user!.id,
+            type: "physical",
+            active: true,
+          },
+        ])
+        .select();
+      if (error) throw error;
+      const created = data![0];
+      setClients((c) => [...c, created]);
+      handleClientChange(created.id);
+      setClientDialogOpen(false);
+      toast({ title: "Cliente adicionado." });
       setNewClientName("");
       setNewClientDocument("");
       setNewClientPhone("");
       setNewClientEmail("");
-      setClientDialogOpen(false);
-
-      toast({
-        title: "Cliente adicionado",
-        description: "Cliente criado com sucesso",
-      });
-    } catch (error) {
-      console.error("Erro ao criar cliente:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar o cliente.",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      console.error("Erro criar cliente:", err);
+      showPostgrestError(err, toast);
     } finally {
       setIsSubmittingClient(false);
     }
   };
 
-  // Create new vehicle
   const handleCreateVehicle = async () => {
-    if (!newVehiclePlate || !newVehicleModel || !selectedClientId) {
+    if (
+      !newVehiclePlate ||
+      !selectedBrand ||
+      !selectedModel ||
+      !selectedYear ||
+      !selectedPlateTypeId ||
+      !selectedClientId
+    ) {
       toast({
         title: "Campos obrigatórios",
-        description: "Placa e modelo são obrigatórios.",
+        description: "Preencha placa, tipo, marca, modelo e ano.",
         variant: "destructive",
       });
       return;
     }
-
     setIsSubmittingVehicle(true);
-
     try {
-      const newVehicle = await ApiService.createVehicle({
-        brand: newVehicleBrand,
-        model: newVehicleModel,
-        year: newVehicleYear,
-        licensePlate: newVehiclePlate,
-        color: newVehicleColor,
-        clientId: selectedClientId,
-      });
-
-      setVehicles((prevVehicles) => [...prevVehicles, newVehicle]);
-      form.setValue("licensePlate", newVehiclePlate);
-
-      // Reset form
-      setNewVehicleBrand("");
-      setNewVehicleModel("");
-      setNewVehicleYear("");
-      setNewVehiclePlate("");
-      setNewVehicleColor("");
+      const marca = brands.find((b) => b.codigo === selectedBrand)?.nome || "";
+      const modelo = models.find((m) => m.codigo === selectedModel)?.nome || "";
+      const { data, error } = await supabase
+        .from("vehicles")
+        .insert([
+          {
+            brand: marca,
+            model: modelo,
+            year: selectedYear,
+            license_plate: newVehiclePlate,
+            color: newVehicleColor,
+            renavam: newVehicleRenavam || null,
+            client_id: selectedClientId,
+            plate_type_id: selectedPlateTypeId,
+          },
+        ])
+        .select();
+      if (error) throw error;
+      const created = data![0];
+      setVehicles((v) => [...v, created]);
+      form.setValue("licensePlate", created.license_plate);
       setVehicleDialogOpen(false);
-
-      toast({
-        title: "Veículo adicionado",
-        description: "Veículo criado com sucesso",
-      });
-    } catch (error) {
-      console.error("Erro ao criar veículo:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar o veículo.",
-        variant: "destructive",
-      });
+      toast({ title: "Veículo adicionado." });
+      // limpa campos
+      setSelectedBrand("");
+      setSelectedModel("");
+      setSelectedYear("");
+      setNewVehiclePlate("");
+      setNewVehicleRenavam("");
+      setNewVehicleColor("");
+      setSelectedPlateTypeId("");
+    } catch (err: any) {
+      console.error("Erro criar veículo:", err);
+      showPostgrestError(err, toast);
     } finally {
       setIsSubmittingVehicle(false);
     }
   };
 
-  // Handle form submission
   const onSubmit = async (data: OrderFormValues) => {
     setIsSubmitting(true);
-
     try {
-      // Get default status if not provided (for client role)
-      let statusToUse = data.statusId;
-      if (!statusToUse && statuses.length > 0) {
-        const defaultStatus = statuses.find((s) => s.order === 1);
-        if (defaultStatus) {
-          statusToUse = defaultStatus.id;
-        }
-      }
-
-      // Create order object
-      const orderData = {
-        serviceTypeId: data.serviceTypeId,
-        clientId: isClient ? user?.id || "" : data.clientId,
-        licensePlate: data.licensePlate,
+      let sid = data.statusId;
+      if (!sid && statuses.length)
+        sid = statuses.find((s) => s.sort_order === 1)!.id;
+      const payload = {
+        service_type_id: data.serviceTypeId,
+        client_id: isClient ? selectedClientId : data.clientId,
+        license_plate: data.licensePlate,
         notes: data.observations || "",
-        estimatedDeliveryDate: data.expectedDeliveryDate
+        estimated_delivery_date: data.expectedDeliveryDate
           ? format(data.expectedDeliveryDate, "yyyy-MM-dd")
-          : undefined,
-        statusId: statusToUse || "",
-        value: 0, // Default value as required by the type
-        createdBy: user?.id || "", // Required by the type
+          : null,
+        status_id: sid!,
+        value: 0,
+        created_by: user!.id,
       };
-
-      // Save order
-      const createdOrder = await ApiService.createOrder(orderData);
-
-      toast({
-        title: "Pedido criado",
-        description: "Pedido criado com sucesso",
-      });
-
-      if (onSuccess) {
-        onSuccess(createdOrder);
-      }
-
-      // Reset form
+      const { data: od, error } = await supabase
+        .from("orders")
+        .insert([payload])
+        .select();
+      if (error) throw error;
+      toast({ title: "Pedido criado com sucesso." });
+      onSuccess?.(od![0]);
       form.reset();
-    } catch (error) {
-      console.error("Erro ao criar pedido:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível criar o pedido.",
-        variant: "destructive",
-      });
+    } catch (err: any) {
+      console.error("Erro criar pedido:", err);
+      showPostgrestError(err, toast);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // — Render do formulário ——————————————————————————
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Service Selection */}
+        {/* SERVIÇO */}
         <FormField
           control={form.control}
           name="serviceTypeId"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
+            <FormItem>
               <FormLabel>Serviço</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
@@ -350,34 +453,29 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                       variant="outline"
                       role="combobox"
                       className={cn(
-                        "justify-between",
+                        "justify-between w-full",
                         !field.value && "text-muted-foreground"
                       )}
                     >
                       {field.value
-                        ? services.find((service) => service.id === field.value)
-                            ?.name
+                        ? services.find((s) => s.id === field.value)?.name
                         : "Selecione um serviço"}
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="p-0">
-                  <Command>
+                  <Command onValueChange={field.onChange}>
                     <CommandInput placeholder="Buscar serviço..." />
-                    <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
-                    <CommandGroup>
-                      {services.map((service) => (
-                        <CommandItem
-                          value={service.name}
-                          key={service.id}
-                          onSelect={() => {
-                            form.setValue("serviceTypeId", service.id);
-                          }}
-                        >
-                          {service.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    <CommandList>
+                      <CommandEmpty>Nenhum serviço encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {services.map((s) => (
+                          <CommandItem key={s.id} value={s.id}>
+                            {s.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -386,181 +484,110 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
           )}
         />
 
-        {/* Client Selection - Only for admin and seller */}
+        {/* CLIENTE (admin/seller) */}
         {(isAdmin || isSeller) && (
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Cliente</FormLabel>
-                  <div className="flex gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className={cn(
-                              "justify-between flex-1",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value
-                              ? clients.find(
-                                  (client) => client.id === field.value
-                                )?.name
-                              : "Selecione um cliente"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="p-0">
-                        <Command>
-                          <CommandInput placeholder="Buscar cliente..." />
+          <FormField
+            control={form.control}
+            name="clientId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <div className="flex gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "justify-between flex-1",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value
+                            ? clients.find((c) => c.id === field.value)?.name
+                            : "Selecione um cliente"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0">
+                      <Command onValueChange={handleClientChange}>
+                        <CommandInput placeholder="Buscar cliente..." />
+                        <CommandList>
                           <CommandEmpty>
                             Nenhum cliente encontrado.
                           </CommandEmpty>
                           <CommandGroup>
-                            {clients.map((client) => (
-                              <CommandItem
-                                value={client.name}
-                                key={client.id}
-                                onSelect={() => {
-                                  handleClientChange(client.id);
-                                }}
-                              >
-                                {client.name}
+                            {clients.map((c) => (
+                              <CommandItem key={c.id} value={c.id}>
+                                {c.name}
                               </CommandItem>
                             ))}
                           </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <Dialog
-                      open={clientDialogOpen}
-                      onOpenChange={setClientDialogOpen}
-                    >
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="icon">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Adicionar Novo Cliente</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="name">Nome</FormLabel>
-                            <Input
-                              id="name"
-                              value={newClientName}
-                              onChange={(e) => setNewClientName(e.target.value)}
-                              placeholder="Nome do cliente"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="document">CPF/CNPJ</FormLabel>
-                            <Input
-                              id="document"
-                              value={newClientDocument}
-                              onChange={(e) =>
-                                setNewClientDocument(e.target.value)
-                              }
-                              placeholder="CPF ou CNPJ"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="phone">Telefone</FormLabel>
-                            <Input
-                              id="phone"
-                              value={newClientPhone}
-                              onChange={(e) =>
-                                setNewClientPhone(e.target.value)
-                              }
-                              placeholder="Telefone"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="email">Email</FormLabel>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={newClientEmail}
-                              onChange={(e) =>
-                                setNewClientEmail(e.target.value)
-                              }
-                              placeholder="Email"
-                            />
-                          </div>
-                        </div>
-                        <Button
-                          onClick={handleCreateClient}
-                          disabled={
-                            isSubmittingClient ||
-                            !newClientName ||
-                            !newClientDocument
-                          }
-                        >
-                          {isSubmittingClient ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : null}
-                          Adicionar Cliente
-                        </Button>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {selectedClientId && clients.length > 0 && (
-              <div className="rounded-md border p-4 bg-muted/20">
-                <h4 className="text-sm font-medium mb-2">
-                  Informações do Cliente
-                </h4>
-                {(() => {
-                  const selectedClient = clients.find(
-                    (c) => c.id === selectedClientId
-                  );
-                  return selectedClient ? (
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        <span className="font-medium">Nome:</span>{" "}
-                        {selectedClient.name}
-                      </p>
-                      <p>
-                        <span className="font-medium">Documento:</span>{" "}
-                        {selectedClient.document}
-                      </p>
-                      {selectedClient.phone && (
-                        <p>
-                          <span className="font-medium">Telefone:</span>{" "}
-                          {selectedClient.phone}
-                        </p>
-                      )}
-                      {selectedClient.email && (
-                        <p>
-                          <span className="font-medium">Email:</span>{" "}
-                          {selectedClient.email}
-                        </p>
-                      )}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <Dialog
+                    open={clientDialogOpen}
+                    onOpenChange={setClientDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Novo Cliente</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <FormLabel>Nome</FormLabel>
+                        <Input
+                          value={newClientName}
+                          onChange={(e) => setNewClientName(e.target.value)}
+                        />
+                        <FormLabel>Documento</FormLabel>
+                        <Input
+                          value={newClientDocument}
+                          onChange={(e) => setNewClientDocument(e.target.value)}
+                        />
+                        <FormLabel>Telefone</FormLabel>
+                        <Input
+                          value={newClientPhone}
+                          onChange={(e) => setNewClientPhone(e.target.value)}
+                        />
+                        <FormLabel>Email</FormLabel>
+                        <Input
+                          type="email"
+                          value={newClientEmail}
+                          onChange={(e) => setNewClientEmail(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleCreateClient}
+                        disabled={isSubmittingClient}
+                      >
+                        {isSubmittingClient && (
+                          <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                        )}
+                        Adicionar Cliente
+                      </Button>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <FormMessage />
+              </FormItem>
             )}
-          </div>
+          />
         )}
 
-        {/* Vehicle Selection */}
+        {/* VEÍCULO */}
         <FormField
           control={form.control}
           name="licensePlate"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
+            <FormItem>
               <FormLabel>Veículo</FormLabel>
               <div className="flex gap-2">
                 <Popover>
@@ -577,126 +604,151 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                       >
                         {field.value
                           ? vehicles.find(
-                              (vehicle) => vehicle.licensePlate === field.value
+                              (v) => v.license_plate === field.value
                             )?.model || field.value
-                          : (isAdmin || isSeller) && !selectedClientId
-                          ? "Selecione um cliente primeiro"
                           : "Selecione um veículo"}
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="p-0">
-                    <Command>
+                    <Command onValueChange={field.onChange}>
                       <CommandInput placeholder="Buscar veículo..." />
-                      <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {vehicles.map((vehicle) => (
-                          <CommandItem
-                            value={`${vehicle.model} - ${vehicle.licensePlate}`}
-                            key={vehicle.id}
-                            onSelect={() => {
-                              handleVehicleChange(vehicle.licensePlate);
-                            }}
-                          >
-                            {vehicle.brand} {vehicle.model} -{" "}
-                            {vehicle.licensePlate}
-                            {vehicle.color && ` (${vehicle.color})`}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                      <CommandList>
+                        <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {vehicles.map((v) => (
+                            <CommandItem key={v.id} value={v.license_plate}>
+                              {v.brand} {v.model} – {v.license_plate}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {(selectedClientId || isClient) && (
-                  <Dialog
-                    open={vehicleDialogOpen}
-                    onOpenChange={setVehicleDialogOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Adicionar Novo Veículo</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <FormLabel htmlFor="brand">Marca</FormLabel>
-                          <Input
-                            id="brand"
-                            value={newVehicleBrand}
-                            onChange={(e) => setNewVehicleBrand(e.target.value)}
-                            placeholder="Marca"
-                          />
-                        </div>
-                        <div className="grid gap-2">
-                          <FormLabel htmlFor="model">Modelo</FormLabel>
-                          <Input
-                            id="model"
-                            value={newVehicleModel}
-                            onChange={(e) => setNewVehicleModel(e.target.value)}
-                            placeholder="Modelo"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="year">Ano</FormLabel>
-                            <Input
-                              id="year"
-                              value={newVehicleYear}
-                              onChange={(e) =>
-                                setNewVehicleYear(e.target.value)
-                              }
-                              placeholder="Ano"
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <FormLabel htmlFor="color">Cor</FormLabel>
-                            <Input
-                              id="color"
-                              value={newVehicleColor}
-                              onChange={(e) =>
-                                setNewVehicleColor(e.target.value)
-                              }
-                              placeholder="Cor"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid gap-2">
-                          <FormLabel htmlFor="plate">Placa</FormLabel>
-                          <Input
-                            id="plate"
-                            value={newVehiclePlate}
-                            onChange={(e) => setNewVehiclePlate(e.target.value)}
-                            placeholder="Placa"
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        onClick={handleCreateVehicle}
-                        disabled={
-                          isSubmittingVehicle ||
-                          !newVehicleModel ||
-                          !newVehiclePlate
-                        }
+
+                <Dialog
+                  open={vehicleDialogOpen}
+                  onOpenChange={setVehicleDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={!selectedClientId && !isClient}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Novo Veículo</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <FormLabel>Tipo de Placa</FormLabel>
+                      <select
+                        value={selectedPlateTypeId}
+                        onChange={(e) => setSelectedPlateTypeId(e.target.value)}
+                        className="bg-background text-foreground border rounded px-3 py-2 w-full"
                       >
-                        {isSubmittingVehicle ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : null}
-                        Adicionar Veículo
-                      </Button>
-                    </DialogContent>
-                  </Dialog>
-                )}
+                        <option value="">Selecione o tipo</option>
+                        {plateTypes.map((pt) => (
+                          <option key={pt.id} value={pt.id}>
+                            {pt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <FormLabel>Marca</FormLabel>
+                      <select
+                        value={selectedBrand}
+                        onChange={(e) => setSelectedBrand(e.target.value)}
+                        className="bg-background text-foreground border rounded px-3 py-2 w-full"
+                      >
+                        <option value="">Selecione a marca</option>
+                        {brands.map((b) => (
+                          <option key={b.codigo} value={b.codigo}>
+                            {b.nome}
+                          </option>
+                        ))}
+                      </select>
+
+                      <FormLabel>Modelo</FormLabel>
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        disabled={!selectedBrand}
+                        className="bg-background text-foreground border rounded px-3 py-2 w-full"
+                      >
+                        <option value="">Selecione o modelo</option>
+                        {models.map((m) => (
+                          <option key={m.codigo} value={m.codigo}>
+                            {m.nome}
+                          </option>
+                        ))}
+                      </select>
+
+                      <FormLabel>Ano</FormLabel>
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        disabled={!selectedModel}
+                        className="bg-background text-foreground border rounded px-3 py-2 w-full"
+                      >
+                        <option value="">Selecione o ano</option>
+                        {years.map((y) => (
+                          <option key={y.codigo} value={y.nome}>
+                            {y.nome}
+                          </option>
+                        ))}
+                      </select>
+
+                      <FormLabel>Placa</FormLabel>
+                      <Input
+                        placeholder="AAA1A11"
+                        value={newVehiclePlate}
+                        onChange={(e) => setNewVehiclePlate(e.target.value)}
+                      />
+
+                      <FormLabel>Renavam (opcional)</FormLabel>
+                      <Input
+                        placeholder="Renavam"
+                        value={newVehicleRenavam}
+                        onChange={(e) => setNewVehicleRenavam(e.target.value)}
+                      />
+
+                      <FormLabel>Cor</FormLabel>
+                      <select
+                        value={newVehicleColor}
+                        onChange={(e) => setNewVehicleColor(e.target.value)}
+                        className="bg-background text-foreground border rounded px-3 py-2 w-full"
+                      >
+                        <option value="">Selecione a cor</option>
+                        {colorOptions.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      onClick={handleCreateVehicle}
+                      disabled={isSubmittingVehicle}
+                    >
+                      {isSubmittingVehicle && (
+                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      )}
+                      Adicionar Veículo
+                    </Button>
+                  </DialogContent>
+                </Dialog>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Observations */}
+        {/* OBSERVAÇÕES */}
         <FormField
           control={form.control}
           name="observations"
@@ -704,50 +756,44 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
             <FormItem>
               <FormLabel>Observações</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Observações adicionais"
-                  className="resize-none"
-                  {...field}
-                />
+                <Textarea {...field} placeholder="Observações adicionais" />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Expected Delivery Date */}
+        {/* DATA PREVISTA */}
         <FormField
           control={form.control}
           name="expectedDeliveryDate"
           render={({ field }) => (
-            <FormItem className="flex flex-col">
+            <FormItem>
               <FormLabel>Data Prevista para Entrega</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
-                      variant={"outline"}
+                      variant="outline"
                       className={cn(
-                        "pl-3 text-left font-normal",
+                        "justify-between w-full",
                         !field.value && "text-muted-foreground"
                       )}
                     >
-                      {field.value ? (
-                        format(field.value, "dd/MM/yyyy")
-                      ) : (
-                        <span>Selecione uma data</span>
-                      )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      {field.value
+                        ? format(field.value, "dd/MM/yyyy")
+                        : "Selecione uma data"}
+                      <CalendarIcon className="ml-2 h-4 w-4" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="p-0">
                   <Calendar
                     mode="single"
                     selected={field.value}
                     onSelect={field.onChange}
-                    disabled={(date) =>
-                      date < new Date(new Date().setHours(0, 0, 0, 0))
+                    disabled={(d) =>
+                      d < new Date(new Date().setHours(0, 0, 0, 0))
                     }
                     initialFocus
                   />
@@ -758,13 +804,13 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
           )}
         />
 
-        {/* Status Selection - Only for admin and seller */}
+        {/* STATUS */}
         {(isAdmin || isSeller) && (
           <FormField
             control={form.control}
             name="statusId"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem>
                 <FormLabel>Status do Pedido</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -773,39 +819,33 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
                         variant="outline"
                         role="combobox"
                         className={cn(
-                          "justify-between",
+                          "justify-between w-full",
                           !field.value && "text-muted-foreground"
                         )}
                       >
                         {field.value
-                          ? statuses.find((status) => status.id === field.value)
-                              ?.name
+                          ? statuses.find((s) => s.id === field.value)?.name
                           : "Selecione um status"}
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
                   <PopoverContent className="p-0">
-                    <Command>
+                    <Command onValueChange={field.onChange}>
                       <CommandInput placeholder="Buscar status..." />
-                      <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {statuses.map((status) => (
-                          <CommandItem
-                            value={status.name}
-                            key={status.id}
-                            onSelect={() => {
-                              form.setValue("statusId", status.id);
-                            }}
-                          >
-                            <div className="flex items-center">
-                              <div
-                                className={`h-3 w-3 rounded-full mr-2 bg-${status.color}-500`}
-                              ></div>
-                              {status.name}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
+                      <CommandList>
+                        <CommandEmpty>Nenhum status encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {statuses.map((s) => (
+                            <CommandItem key={s.id} value={s.id}>
+                              <span
+                                className="inline-block mr-2 w-3 h-3 rounded-full"
+                                style={{ backgroundColor: s.color }}
+                              />
+                              {s.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
@@ -815,11 +855,11 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
           />
         )}
 
-        {/* Submit button */}
+        {/* BOTÃO CRIAR */}
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="animate-spin mr-2 h-4 w-4" />
               Processando...
             </>
           ) : (
@@ -829,6 +869,4 @@ const NewOrderForm: React.FC<NewOrderFormProps> = ({ onSuccess }) => {
       </form>
     </Form>
   );
-};
-
-export default NewOrderForm;
+}

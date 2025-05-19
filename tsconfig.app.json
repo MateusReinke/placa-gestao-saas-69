@@ -1,30 +1,13 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+    // Garante que o TS entenda o JSX no formato React 17+
     "jsx": "react-jsx",
-
-    /* Linting */
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitAny": false,
-    "noFallthroughCasesInSwitch": false,
-
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    // Tipos para suportar import `{ ReactComponent as ... }` de SVGs
+    "types": ["vite-plugin-svgr/client"]
   },
-  "include": ["src"]
+  "include": [
+    "src", // todo o código-fonte
+    "src/global.d.ts" // nosso arquivo de declarações (SVG, imagens, etc)
+  ]
 }
