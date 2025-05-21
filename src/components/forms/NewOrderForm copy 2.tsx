@@ -61,7 +61,7 @@ export default function NewOrderForm({
   const isSeller = user?.role === "seller";
   const isClient = !isAdmin && !isSeller;
 
-  // Obtenho TUDO do hook
+  // pega TUDO do RHF
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
     defaultValues: {
@@ -84,7 +84,7 @@ export default function NewOrderForm({
 
   const selectedClientId = watch("clientId");
 
-  // estados locais
+  // dados carregados
   const [services, setServices] = useState<{ id: string; name: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [vehicles, setVehicles] = useState<
@@ -93,11 +93,10 @@ export default function NewOrderForm({
   const [statuses, setStatuses] = useState<{ id: string; name: string }[]>([]);
   const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
 
-  // carrega serviços, status, clientes/veículos iniciais
+  // carrega serviços, status, e clientes/veículos iniciais
   useEffect(() => {
     (async () => {
       try {
-        // serviços e status
         const [svc, sts] = await Promise.all([
           ApiService.getServiceTypes(),
           OrderStatusesService.getOrderStatuses(),
@@ -106,7 +105,6 @@ export default function NewOrderForm({
         setStatuses(sts);
         if (sts[0]) setValue("statusId", sts[0].id);
 
-        // se for cliente, busca own clientId + veículos
         if (isClient && user?.id) {
           const { data: me } = await supabase
             .from("clients")
@@ -116,9 +114,7 @@ export default function NewOrderForm({
           setValue("clientId", me.id);
           const myV = await VehicleService.getClientVehicles(me.id);
           setVehicles(myV);
-        }
-        // se for admin/vendedor, busca todos os clientes
-        else if (isAdmin || isSeller) {
+        } else if (isAdmin || isSeller) {
           const allC = await ClientsService.getClients();
           setClients(allC);
         }
@@ -151,7 +147,7 @@ export default function NewOrderForm({
     })();
   }, [selectedClientId, toast]);
 
-  // handler de submit
+  // submit
   const onSubmit = async (data: OrderFormValues) => {
     try {
       const payload = {
@@ -181,7 +177,7 @@ export default function NewOrderForm({
   };
 
   return (
-    // ⬅️ passo TODO o objeto `form` aqui para o contexto interno
+    // 🔑 passo todo o objeto `form` aqui
     <Form {...form}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* SERVIÇO */}
