@@ -1,4 +1,4 @@
-
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -44,7 +44,7 @@
     --sidebar-border: 217.2 32.6% 17.5%;
     --sidebar-ring: 224.3 76.3% 48%;
   }
-  
+
   .light {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -93,7 +93,7 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-  
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
@@ -114,8 +114,79 @@
   .kanban-column {
     @apply min-h-[500px] w-[300px] rounded-md bg-card border border-border p-2 flex flex-col;
   }
-  
+
   .kanban-card {
     @apply bg-secondary rounded-md p-3 mb-2 shadow-sm cursor-move;
+  }
+
+  /* React-Resizable Handle Styling */
+  .react-resizable-handle {
+    position: absolute;
+    width: 15px; /* Tamanho da área clicável */
+    height: 15px; /* Tamanho da área clicável */
+    background: rgba(
+      var(--primary),
+      0.5
+    ); /* Use a cor primária com transparência */
+    border-radius: 3px;
+    z-index: 2; /* Garante que a alça esteja acima do conteúdo do card */
+    opacity: 0; /* Esconde por padrão */
+    transition: opacity 0.2s ease-in-out; /* Transição suave */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3); /* Uma sombra leve */
+  }
+
+  /* Mostra a alça ao passar o mouse sobre o item da grid */
+  .react-grid-item.react-resizable:hover > .react-resizable-handle {
+    opacity: 1;
+  }
+
+  /* Posições das alças (south-east é a mais comum para redimensionamento diagonal) */
+  .react-resizable-handle-se {
+    bottom: 0;
+    right: 0;
+    cursor: se-resize;
+  }
+
+  /* Estilos visuais para a alça (o pequeno triângulo ou barra) */
+  .react-resizable-handle-se::after {
+    content: "";
+    position: absolute;
+    right: 4px; /* Mais afastado da borda */
+    bottom: 4px; /* Mais afastado da borda */
+    width: 6px; /* Tamanho do indicador */
+    height: 6px;
+    border-bottom: 2px solid hsl(var(--primary-foreground)); /* Cor baseada na foreground */
+    border-right: 2px solid hsl(var(--primary-foreground)); /* Cor baseada na foreground */
+    z-index: 2; /* Garante que o indicador esteja acima do fundo da alça */
+  }
+
+  /* Fundo quadriculado (grid) para o modo de edição */
+  .react-grid-layout.is-editing .grid-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(
+        to right,
+        rgba(var(--border), 0.5) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, rgba(var(--border), 0.5) 1px, transparent 1px);
+    background-size: 10px 10px; /* Tamanho da célula da grid */
+    z-index: -1; /* Fundo, abaixo dos widgets */
+    pointer-events: none; /* Permite interagir com os widgets por cima */
+  }
+
+  /* Opcional: Efeito visual quando arrasta/redimensiona */
+  .react-grid-item.react-draggable-dragging,
+  .react-grid-item.react-resizable-resizing {
+    transition: none !important; /* Desativa transições durante a interação */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* Sombra mais forte */
+  }
+
+  /* Espaçamento entre os widgets */
+  .react-grid-item {
+    padding: 10px; /* Isso adiciona um espaçamento ao redor de cada item da grid */
   }
 }
