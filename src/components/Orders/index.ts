@@ -1,3 +1,6 @@
-import OrdersHeader from "@/components/Orders/OrdersHeader";
-import OrdersList from "@/components/Orders/OrdersList";
-import OrdersKanban from "@/components/Orders/OrdersKanban";
+// src/components/Orders/index.ts
+import OrdersHeader from "./OrdersHeader"; // Alterado para caminho relativo
+import OrdersList from "./OrdersList"; // Alterado para caminho relativo
+import OrdersKanban from "./OrdersKanban"; // Alterado para caminho relativo
+
+export { OrdersHeader, OrdersList, OrdersKanban };

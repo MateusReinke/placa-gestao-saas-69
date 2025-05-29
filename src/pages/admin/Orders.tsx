@@ -6,13 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 
 import { OrdersService } from "@/services/ordersApi";
 import { OrderStatus, OrderStatusesService } from "@/services/orderStatusesApi";
+import { Order, Client, ServiceType } from "@/types"; // Adicionado Client e ServiceType
 
-import { Order } from "@/types";
-
-import OrdersHeader from "@/components/Orders/OrdersHeader";
-import OrdersList from "@/components/Orders/OrdersList";
-import OrdersKanban from "@/components/Orders/OrdersKanban";
-import ConfirmDeleteModal from "@/components/Modals/ConfirmDeleteModal";
+// Importando do barrel file para componentes de Orders
+import { OrdersHeader, OrdersList, OrdersKanban } from "@/components/Orders";
+// Importando diretamente o ConfirmDeleteModal
+import ConfirmDeleteModal from "@/components/Modals/ConfirmDeleteModal"; // Verifique se este arquivo existe em src/components/Modals/
 
 /* -------------------------------------------------------------------------- */
 
@@ -25,15 +24,15 @@ const OrdersPage: React.FC = () => {
   const [statuses, setStatuses] = useState<OrderStatus[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false); // Para o modal de novo pedido no Header
 
   const [organizationMode, setOrganizationMode] = useState<"list" | "kanban">(
     "kanban"
   );
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [clientFilter, setClientFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all"); // ID do cliente ou "all"
+  const [serviceFilter, setServiceFilter] = useState("all"); // ID do serviço ou "all"
 
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
@@ -53,16 +52,23 @@ const OrdersPage: React.FC = () => {
 
         setOrders(fetchedOrders);
         setStatuses(
-          fetchedStatuses.sort((a, b) =>
-            a.sort_order && b.sort_order
-              ? a.sort_order - b.sort_order
-              : a.name.localeCompare(b.name)
-          )
+          fetchedStatuses.sort((a, b) => {
+            const sortA = a.sort_order ?? Infinity;
+            const sortB = b.sort_order ?? Infinity;
+
+            if (sortA !== Infinity && sortB !== Infinity) {
+              return sortA - sortB;
+            }
+            if (sortA !== Infinity) return -1;
+            if (sortB !== Infinity) return 1;
+            return a.name.localeCompare(b.name);
+          })
         );
-      } catch (err) {
+      } catch (err: any) {
         toast({
-          title: "Erro",
-          description: "Não foi possível carregar os pedidos.",
+          title: "Erro ao carregar dados",
+          description:
+            err.message || "Não foi possível carregar os pedidos e status.",
           variant: "destructive",
         });
       } finally {
@@ -71,76 +77,92 @@ const OrdersPage: React.FC = () => {
     })();
   }, [toast, user?.id, user?.role]);
 
-  /* ---------- MEMO LISTS -------------------------------------------------- */
+  /* ---------- MEMO LISTS (para filtros no Header) ----------------------- */
   const uniqueClients = useMemo(() => {
-    const ids = new Set(orders.map((o) => o.client?.id).filter(Boolean));
-    return [...ids]
-      .map((id) => {
-        const c = orders.find((o) => o.client?.id === id)?.client;
-        return c ? { id: c.id, name: c.name } : null;
-      })
-      .filter(Boolean) as { id: string; name: string }[];
+    const clientMap = new Map<string, string>();
+    orders.forEach((order) => {
+      if (order.client?.id && order.client?.name) {
+        clientMap.set(order.client.id, order.client.name);
+      }
+    });
+    return Array.from(clientMap.entries()).map(
+      ([id, name]) => ({ id, name } as Pick<Client, "id" | "name">)
+    );
   }, [orders]);
 
   const uniqueServices = useMemo(() => {
-    const ids = new Set(orders.map((o) => o.serviceType?.id).filter(Boolean));
-    return [...ids]
-      .map((id) => {
-        const s = orders.find((o) => o.serviceType?.id === id)?.serviceType;
-        return s ? { id: s.id, name: s.name } : null;
-      })
-      .filter(Boolean) as { id: string; name: string }[];
+    const serviceMap = new Map<string, string>();
+    orders.forEach((order) => {
+      if (order.serviceType?.id && order.serviceType?.name) {
+        serviceMap.set(order.serviceType.id, order.serviceType.name);
+      }
+    });
+    return Array.from(serviceMap.entries()).map(
+      ([id, name]) => ({ id, name } as Pick<ServiceType, "id" | "name">)
+    );
   }, [orders]);
 
   /* ---------- FILTERED ORDERS -------------------------------------------- */
   const filteredOrders = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return orders.filter((o) => {
+      const clientName = o.client?.name?.toLowerCase() || "";
+      const serviceTypeName = o.serviceType?.name?.toLowerCase() || "";
+      const vehiclePlate = o.vehicle?.license_plate?.toLowerCase() || "";
+
       const okSearch =
         !q ||
-        o.order_number?.toLowerCase().includes(q) ||
-        o.client?.name?.toLowerCase().includes(q) ||
-        o.serviceType?.name?.toLowerCase().includes(q) ||
-        o.vehicle?.placa?.toLowerCase().includes(q);
+        (o.order_number && o.order_number.toLowerCase().includes(q)) ||
+        clientName.includes(q) ||
+        serviceTypeName.includes(q) ||
+        vehiclePlate.includes(q);
 
       const okClient = clientFilter === "all" || o.client?.id === clientFilter;
       const okService =
         serviceFilter === "all" || o.serviceType?.id === serviceFilter;
+
       return okSearch && okClient && okService;
     });
   }, [orders, searchQuery, clientFilter, serviceFilter]);
 
-  /* ---------- HELPERS ----------------------------------------------------- */
-  const badge = (color: string) =>
-    ((
-      {
-        "#3498db": "bg-blue-500 text-white",
-        "#f39c12": "bg-yellow-500 text-white",
-        "#9b59b6": "bg-purple-400 text-white",
-        "#e74c3c": "bg-red-500 text-white",
-        "#2ecc71": "bg-green-500 text-white",
-      } as Record<string, string>
-    )[color] ?? "bg-gray-500 text-white");
+  /* ---------- HELPERS (classe para badge de status) --------------------- */
+  const getStatusColorClass = (colorValue?: string): string => {
+    if (!colorValue) return "bg-gray-400 text-white"; // Cor padrão se indefinida
+    const color = colorValue.toLowerCase();
+
+    // Mapeamento direto de cores hexadecimais conhecidas para classes Tailwind
+    // Adicione mais mapeamentos conforme as cores definidas no seu `order_statuses`
+    const colorMap: Record<string, string> = {
+      "#3498db": "bg-blue-500 text-blue-50", // Novo
+      "#f39c12": "bg-amber-500 text-amber-50", // Em Análise
+      "#e74c3c": "bg-red-500 text-red-50", // Aguardando Documentação
+      "#2ecc71": "bg-emerald-500 text-emerald-50", // Processando
+      "#27ae60": "bg-green-600 text-green-50", // Concluído
+      "#7f8c8d": "bg-slate-500 text-slate-50", // Cancelado
+      "#9b59b6": "bg-purple-500 text-purple-50", // Exemplo de outra cor
+    };
+
+    return colorMap[color] || `bg-[${color}] text-white`; // Fallback para usar a cor diretamente (requer Tailwind JIT)
+  };
 
   /* ---------- DRAG / STATUS UPDATE ---------- */
   const handleMoveOrder = async (
     orderId: string,
     toStatusId: string,
-    note = ""
+    note = "" // Nota é opcional
   ) => {
     try {
       const updated = await OrdersService.updateOrder(orderId, {
         status_id: toStatusId,
-        message: note || null, //  ←  trocado
+        message: note || undefined, // A API espera 'message' para notas
       });
 
-      // atualiza state local
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-      toast({ title: "Status atualizado" });
-    } catch (e) {
+      toast({ title: "Status atualizado com sucesso!" });
+    } catch (e: any) {
       toast({
         title: "Erro ao atualizar status",
-        description: typeof e === "object" ? JSON.stringify(e) : String(e),
+        description: e.message || String(e),
         variant: "destructive",
       });
     }
@@ -154,10 +176,10 @@ const OrdersPage: React.FC = () => {
       await OrdersService.deleteOrder(deleteModal.orderId);
       setOrders((prev) => prev.filter((o) => o.id !== deleteModal.orderId));
       toast({ title: "Pedido removido com sucesso" });
-    } catch (e) {
+    } catch (e: any) {
       toast({
         title: "Erro ao remover pedido",
-        description: String(e),
+        description: e.message || String(e),
         variant: "destructive",
       });
     } finally {
@@ -184,17 +206,21 @@ const OrdersPage: React.FC = () => {
           setOrganizationMode={setOrganizationMode}
           uniqueClients={uniqueClients}
           uniqueServices={uniqueServices}
-          onOrderCreated={(o) => setOrders((prev) => [o, ...prev])}
+          onOrderCreated={(newOrder) =>
+            setOrders((prev) => [newOrder, ...prev])
+          }
         />
 
         {/* BODY */}
         {loading ? (
-          <p className="text-center py-20 text-muted-foreground">Carregando…</p>
+          <div className="flex justify-center items-center py-20">
+            <p className="text-muted-foreground">Carregando pedidos…</p>
+          </div>
         ) : organizationMode === "kanban" ? (
           <OrdersKanban
             orders={filteredOrders}
             statuses={statuses}
-            badge={badge}
+            badge={getStatusColorClass}
             onMove={handleMoveOrder}
             onDelete={(id) => setDeleteModal({ open: true, orderId: id })}
           />
@@ -212,7 +238,8 @@ const OrdersPage: React.FC = () => {
           onClose={() => setDeleteModal({ open: false })}
           onConfirm={handleRemoveOrder}
           loading={deleteLoading}
-          text="Deseja realmente remover este pedido?"
+          title="Confirmar Remoção de Pedido"
+          description="Tem certeza que deseja remover este pedido? Esta ação não pode ser desfeita."
         />
       </div>
     </AppLayout>
