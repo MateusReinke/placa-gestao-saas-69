@@ -13,14 +13,14 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children, 
   allowedRoles 
 }) => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, userProfile, loading } = useAuth();
   const location = useLocation();
   
   // Debug logging
   console.log('[ProtectedRoute]', { 
     path: location.pathname,
     isAuthenticated, 
-    userRole: user?.role,
+    userRole: userProfile?.role,
     allowedRoles,
     loading
   });
@@ -44,7 +44,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && userProfile && !allowedRoles.includes(userProfile.role)) {
     // User doesn't have permission - redirect to dashboard
     console.log('[ProtectedRoute] User lacks permission, redirecting to dashboard');
     return <Navigate to="/dashboard" replace />;

@@ -21,6 +21,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  login: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -107,6 +108,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { error };
   };
 
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const result = await signIn(email, password);
+    return !result.error;
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -121,6 +127,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     isAuthenticated: !!user,
     signIn,
+    login,
     signOut,
     logout,
   };

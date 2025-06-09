@@ -1,3 +1,4 @@
+
 // src/services/ordersApi.ts
 import { supabase } from "@/lib/supabaseClient";
 import { Order as OrderUI } from "@/types";
@@ -46,7 +47,7 @@ function normalize(o: OrderRaw): OrderUI {
       ? { id: o.serviceType.id, name: o.serviceType.name }
       : undefined,
     vehicle: o.vehicle
-      ? { id: o.vehicle.id, placa: o.vehicle.placa }
+      ? { id: o.vehicle.id, license_plate: o.vehicle.license_plate }
       : undefined,
     status: o.status
       ? { id: o.status.id, name: o.status.name, color: o.status.color }
@@ -54,6 +55,10 @@ function normalize(o: OrderRaw): OrderUI {
     status_id: o.status_id,
     value: o.value,
     created_at: o.created_at,
+    client_id: o.client_id,
+    service_type_id: o.service_type_id,
+    vehicle_id: o.vehicle_id,
+    created_by: o.created_by,
     /* o frontend continua chamando de notes  */
     notes: o.message ?? "",
   };
