@@ -1,7 +1,11 @@
-// src/components/forms/NewVehicleForm.tsx
 import React, { useEffect, useState } from "react";
 import { Car, Bike, Truck, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -11,11 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import LicensePlate from "@/components/LicensePlate";
 
+// Endpoints FIPE por categoria
 const FIPE_BASE = {
   carros: "https://parallelum.com.br/fipe/api/v1/carros",
   motos: "https://parallelum.com.br/fipe/api/v1/motos",
@@ -24,16 +29,21 @@ const FIPE_BASE = {
 
 interface NewVehicleFormProps {
   initialData?: any;
-  onSuccess: () => void;
+  onSuccess: (vehicle?: any) => void;
+  clientId?: string;
+  simplified?: boolean;
 }
 
 export default function NewVehicleForm({
   initialData,
   onSuccess,
+  clientId,
+  simplified = false,
 }: NewVehicleFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // — Estados principais —
   const [category, setCategory] = useState<"carros" | "motos" | "caminhoes">(
     initialData?.category || "carros"
   );
@@ -56,6 +66,7 @@ export default function NewVehicleForm({
   const [renavam, setRenavam] = useState(initialData?.renavam || "");
   const [submitting, setSubmitting] = useState(false);
 
+  // — Carrega tipos de placa —
   useEffect(() => {
     supabase
       .from("plate_types")
@@ -65,12 +76,15 @@ export default function NewVehicleForm({
       });
   }, []);
 
+  // — Filtra plate types por categoria —
   const filteredPlateTypes = plateTypes.filter((pt) => {
     if (category === "motos") return pt.code.includes("moto");
     if (category === "caminhoes") return pt.code.includes("comercial");
+    // carros: todos exceto moto
     return !pt.code.includes("moto");
   });
 
+  // — Ao trocar de categoria, reseta ou pré-seleciona tipo de placa —
   useEffect(() => {
     if (filteredPlateTypes.length === 1) {
       setPlateTypeId(filteredPlateTypes[0].id);
@@ -79,6 +93,7 @@ export default function NewVehicleForm({
     }
   }, [category, plateTypes]);
 
+  // — FIPE: carregar marcas ao mudar categoria —
   useEffect(() => {
     setBrands([]);
     setModels([]);
@@ -98,6 +113,7 @@ export default function NewVehicleForm({
       );
   }, [category, toast]);
 
+  // — FIPE: carregar modelos ao escolher marca —
   useEffect(() => {
     if (!brandCode) return setModels([]);
     fetch(`${FIPE_BASE[category]}/marcas/${brandCode}/modelos`)
@@ -112,6 +128,7 @@ export default function NewVehicleForm({
       );
   }, [brandCode, category, toast]);
 
+  // — FIPE: carregar anos ao escolher modelo —
   useEffect(() => {
     if (!brandCode || !modelCode) return setYears([]);
     fetch(
@@ -128,6 +145,7 @@ export default function NewVehicleForm({
       );
   }, [brandCode, modelCode, category, toast]);
 
+  // — Submissão —
   const handleSubmit = async () => {
     if (
       !licensePlate ||
@@ -145,14 +163,20 @@ export default function NewVehicleForm({
     }
     setSubmitting(true);
     try {
-      const { data: cli } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", user!.id)
-        .single();
+      // Use provided clientId or get from user
+      let targetClientId = clientId;
+      if (!targetClientId && user?.id) {
+        const { data: cli } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+        targetClientId = cli?.id;
+      }
 
-      const rawYear = years.find((y) => y.codigo === yearCode)?.nome || "";
-      const onlyYear = rawYear.split(" ")[0]; // pega só o ano
+      if (!targetClientId) {
+        throw new Error("Cliente não encontrado");
+      }
 
       const payload = {
         category,
@@ -161,8 +185,8 @@ export default function NewVehicleForm({
         plate_type_id: plateTypeId,
         brand: brands.find((b) => b.codigo === brandCode)!.nome,
         model: models.find((m) => m.codigo === modelCode)!.nome,
-        year: onlyYear,
-        client_id: cli!.id,
+        year: years.find((y) => y.codigo === yearCode)!.nome,
+        client_id: targetClientId,
       };
 
       let res;
@@ -170,14 +194,18 @@ export default function NewVehicleForm({
         res = await supabase
           .from("vehicles")
           .update(payload)
-          .eq("id", initialData.id);
+          .eq("id", initialData.id)
+          .select()
+          .single();
       } else {
-        res = await supabase.from("vehicles").insert(payload);
+        res = await supabase.from("vehicles").insert(payload).select().single();
       }
       if (res.error) throw res.error;
 
-      toast({ title: initialData ? "Atualizado" : "Adicionado" });
-      onSuccess();
+      toast({
+        title: initialData ? "Atualizado" : "Adicionado",
+      });
+      onSuccess(res.data);
     } catch (e) {
       console.error(e);
       toast({
@@ -190,23 +218,36 @@ export default function NewVehicleForm({
     }
   };
 
+  // — Preview props —
   const pt = plateTypes.find((t) => t.id === plateTypeId);
   const previewColor = pt?.color || "#000";
   const previewCode = pt?.code || "";
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex justify-center">
-        <LicensePlate
-          plate={licensePlate || "AAA1A11"}
-          plateColor={previewColor}
-          plateTypeCode={previewCode}
-        />
-      </div>
+      {!simplified && (
+        <DialogHeader>
+          <DialogTitle>
+            {initialData ? "Editar Veículo" : "Novo Veículo"}
+          </DialogTitle>
+        </DialogHeader>
+      )}
 
+      {/* 1) Preview da placa */}
+      {!simplified && (
+        <div className="flex justify-center">
+          <LicensePlate
+            plate={licensePlate || "AAA1A11"}
+            plateColor={previewColor}
+            plateTypeCode={previewCode}
+          />
+        </div>
+      )}
+
+      {/* 2) Categoria */}
       <div className="flex gap-2">
         <Button
-          variant={category === "carros" ? "solid" : "outline"}
+          variant={category === "carros" ? "default" : "outline"}
           onClick={() => setCategory("carros")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -214,7 +255,7 @@ export default function NewVehicleForm({
           Carro
         </Button>
         <Button
-          variant={category === "motos" ? "solid" : "outline"}
+          variant={category === "motos" ? "default" : "outline"}
           onClick={() => setCategory("motos")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -222,7 +263,7 @@ export default function NewVehicleForm({
           Moto
         </Button>
         <Button
-          variant={category === "caminhoes" ? "solid" : "outline"}
+          variant={category === "caminhoes" ? "default" : "outline"}
           onClick={() => setCategory("caminhoes")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -231,8 +272,9 @@ export default function NewVehicleForm({
         </Button>
       </div>
 
+      {/* 3) Marca FIPE */}
       <Select onValueChange={setBrandCode} value={brandCode}>
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecione a marca" />
         </SelectTrigger>
         <SelectContent>
@@ -246,12 +288,13 @@ export default function NewVehicleForm({
         </SelectContent>
       </Select>
 
+      {/* 4) Modelo FIPE */}
       <Select
         onValueChange={setModelCode}
         value={modelCode}
         disabled={!brandCode}
       >
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecione o modelo" />
         </SelectTrigger>
         <SelectContent>
@@ -265,12 +308,13 @@ export default function NewVehicleForm({
         </SelectContent>
       </Select>
 
+      {/* 5) Ano FIPE */}
       <Select
         onValueChange={setYearCode}
         value={yearCode}
         disabled={!modelCode}
       >
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecione o ano" />
         </SelectTrigger>
         <SelectContent>
@@ -284,12 +328,13 @@ export default function NewVehicleForm({
         </SelectContent>
       </Select>
 
+      {/* 6) Tipo de placa filtrado */}
       <Select
         onValueChange={setPlateTypeId}
         value={plateTypeId}
         disabled={filteredPlateTypes.length === 0}
       >
-        <SelectTrigger>
+        <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecione o tipo de placa" />
         </SelectTrigger>
         <SelectContent>
@@ -303,18 +348,22 @@ export default function NewVehicleForm({
         </SelectContent>
       </Select>
 
+      {/* 7) Inputs Placa e Renavam */}
       <Input
         placeholder="Placa (AAA1A11)"
         value={licensePlate}
         maxLength={7}
         onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
       />
-      <Input
-        placeholder="Renavam (opcional)"
-        value={renavam}
-        onChange={(e) => setRenavam(e.target.value)}
-      />
+      {!simplified && (
+        <Input
+          placeholder="Renavam (opcional)"
+          value={renavam}
+          onChange={(e) => setRenavam(e.target.value)}
+        />
+      )}
 
+      {/* 8) Botão salvar */}
       <Button onClick={handleSubmit} className="w-full" disabled={submitting}>
         {submitting ? (
           <Loader2 className="animate-spin mr-2 h-4 w-4" />

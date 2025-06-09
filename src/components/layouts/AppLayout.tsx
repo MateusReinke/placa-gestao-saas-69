@@ -265,7 +265,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 )}
               >
                 <Avatar className="h-8 w-8 border border-sidebar-border">
-                  <AvatarImage src={user?.photo} />
+                  <AvatarImage src={user?.photo_url || user?.photo} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 {!collapsed && (
@@ -279,7 +279,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <DropdownMenuContent align="start" className="w-56">
               <div className="flex items-center gap-2 p-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.photo} />
+                  <AvatarImage src={user?.photo_url || user?.photo} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col space-y-0.5">

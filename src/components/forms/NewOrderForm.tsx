@@ -27,7 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +43,7 @@ import NewVehicleForm from "@/components/forms/NewVehicleForm";
 const orderSchema = z.object({
   serviceTypeId: z.string().nonempty("Selecione um serviço"),
   clientId: z.string().optional(),
-  licensePlate: z.string().nonempty("Selecione um veículo"),
+  vehicleId: z.string().nonempty("Selecione um veículo"),
   observations: z.string().optional(),
   expectedDeliveryDate: z.date().optional(),
   statusId: z.string().optional(),
@@ -67,7 +67,7 @@ export default function NewOrderForm({
     defaultValues: {
       serviceTypeId: "",
       clientId: "",
-      licensePlate: "",
+      vehicleId: "",
       observations: "",
       expectedDeliveryDate: undefined,
       statusId: "",
@@ -151,14 +151,22 @@ export default function NewOrderForm({
     })();
   }, [selectedClientId, toast]);
 
+  const onVehicleSuccess = (nv?: any) => {
+    if (nv) {
+      setVehicles((pv) => [...pv, nv]);
+      setValue("vehicleId", nv.id);
+      setVehicleDialogOpen(false);
+    }
+  };
+
   // handler de submit
   const onSubmit = async (data: OrderFormValues) => {
     try {
       const payload = {
         service_type_id: data.serviceTypeId,
         client_id: isClient ? data.clientId! : data.clientId,
-        license_plate: data.licensePlate,
-        notes: data.observations || "",
+        vehicle_id: data.vehicleId,
+        message: data.observations || "",
         estimated_delivery_date: data.expectedDeliveryDate
           ? format(data.expectedDeliveryDate, "yyyy-MM-dd")
           : undefined,
@@ -245,7 +253,7 @@ export default function NewOrderForm({
         {/* VEÍCULO */}
         <FormField
           control={control}
-          name="licensePlate"
+          name="vehicleId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Veículo</FormLabel>
@@ -256,12 +264,12 @@ export default function NewOrderForm({
                     disabled={!selectedClientId}
                     className={cn(
                       "w-full border rounded px-3 py-2 bg-background",
-                      errors.licensePlate && "border-destructive"
+                      errors.vehicleId && "border-destructive"
                     )}
                   >
                     <option value="">Selecione um veículo</option>
                     {vehicles.map((v) => (
-                      <option key={v.license_plate} value={v.license_plate}>
+                      <option key={v.id} value={v.id}>
                         {v.model} – {v.license_plate}
                       </option>
                     ))}
@@ -289,17 +297,13 @@ export default function NewOrderForm({
                     </DialogHeader>
                     <NewVehicleForm
                       clientId={selectedClientId}
-                      onSuccess={(nv) => {
-                        setVehicles((pv) => [...pv, nv]);
-                        setValue("licensePlate", nv.license_plate);
-                        setVehicleDialogOpen(false);
-                      }}
+                      onSuccess={onVehicleSuccess}
                     />
                     <DialogFooter />
                   </DialogContent>
                 </Dialog>
               </div>
-              <FormMessage>{errors.licensePlate?.message}</FormMessage>
+              <FormMessage>{errors.vehicleId?.message}</FormMessage>
             </FormItem>
           )}
         />
