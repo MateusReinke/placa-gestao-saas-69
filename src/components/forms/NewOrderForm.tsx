@@ -27,7 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -150,6 +150,14 @@ export default function NewOrderForm({
       }
     })();
   }, [selectedClientId, toast]);
+
+  const onVehicleSuccess = (nv?: any) => {
+    if (nv) {
+      setVehicles((pv) => [...pv, nv]);
+      setValue("vehicleId", nv.id);
+      setVehicleDialogOpen(false);
+    }
+  };
 
   // handler de submit
   const onSubmit = async (data: OrderFormValues) => {
@@ -289,11 +297,7 @@ export default function NewOrderForm({
                     </DialogHeader>
                     <NewVehicleForm
                       clientId={selectedClientId}
-                      onSuccess={(nv: any) => {
-                        setVehicles((pv) => [...pv, nv]);
-                        setValue("vehicleId", nv.id);
-                        setVehicleDialogOpen(false);
-                      }}
+                      onSuccess={onVehicleSuccess}
                     />
                     <DialogFooter />
                   </DialogContent>

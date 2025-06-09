@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { ApiService } from "@/services/serviceTypesApi";
+import { ClientsService } from "@/services/clientsApi";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -205,7 +205,7 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
     form.setValue("addVehicle", checked);
   };
 
-  const onVehicleFormSuccess = (vehicleData: any) => {
+  const onVehicleFormSuccess = (vehicleData?: any) => {
     if (vehicleData) {
       setVehicleData(vehicleData);
       // Auto-fill some data in the form for display purposes
@@ -253,9 +253,9 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
         createdBy: user.id,
       };
 
-      const client = await ApiService.createClient(newClient);
+      const client = await ClientsService.createClient(newClient);
 
-      // Se tiver veículo para adicionar, criaremos após o cliente
+      // If tiver veículo para adicionar, criaremos após o cliente
       if (values.addVehicle && client && vehicleData) {
         // Aqui implementaríamos a lógica para salvar o veículo associado ao cliente
         console.log("Salvando veículo para cliente", client.id, vehicleData);
