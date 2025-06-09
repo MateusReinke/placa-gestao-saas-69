@@ -1,3 +1,4 @@
+
 // src/types/index.ts
 export type UserRole = "admin" | "seller" | "physical" | "juridical";
 
@@ -9,6 +10,7 @@ export interface User {
   document?: string | null;
   phone?: string | null;
   photo_url?: string | null;
+  photo?: string | null; // Adding this for compatibility
   created_at?: string | null;
   updated_at?: string | null;
 }
