@@ -19,8 +19,10 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,12 +113,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUserProfile(null);
   };
 
+  const logout = signOut; // Alias for signOut
+
   const value = {
     user,
     userProfile,
     loading,
+    isAuthenticated: !!user,
     signIn,
     signOut,
+    logout,
   };
 
   return (

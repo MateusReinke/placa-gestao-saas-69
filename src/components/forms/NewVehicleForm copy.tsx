@@ -230,7 +230,7 @@ export default function NewVehicleForm({
       {/* 2) Categoria */}
       <div className="flex gap-2">
         <Button
-          variant={category === "carros" ? "solid" : "outline"}
+          variant={category === "carros" ? "default" : "outline"}
           onClick={() => setCategory("carros")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -238,7 +238,7 @@ export default function NewVehicleForm({
           Carro
         </Button>
         <Button
-          variant={category === "motos" ? "solid" : "outline"}
+          variant={category === "motos" ? "default" : "outline"}
           onClick={() => setCategory("motos")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -246,7 +246,7 @@ export default function NewVehicleForm({
           Moto
         </Button>
         <Button
-          variant={category === "caminhoes" ? "solid" : "outline"}
+          variant={category === "caminhoes" ? "default" : "outline"}
           onClick={() => setCategory("caminhoes")}
           className="flex-1 flex items-center justify-center gap-2"
         >
@@ -255,6 +255,8 @@ export default function NewVehicleForm({
         </Button>
       </div>
 
+      {/* ... keep existing code (FIPE selectors and inputs) */}
+      
       {/* 3) Marca FIPE */}
       <Select onValueChange={setBrandCode} value={brandCode}>
         <SelectTrigger className="w-full">
