@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Car, Bike, Truck, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import LicensePlate from "@/components/LicensePlate";
@@ -30,12 +29,16 @@ const FIPE_BASE = {
 
 interface NewVehicleFormProps {
   initialData?: any;
-  onSuccess: () => void;
+  onSuccess: (vehicle?: any) => void;
+  clientId?: string;
+  simplified?: boolean;
 }
 
 export default function NewVehicleForm({
   initialData,
   onSuccess,
+  clientId,
+  simplified = false,
 }: NewVehicleFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -160,12 +163,20 @@ export default function NewVehicleForm({
     }
     setSubmitting(true);
     try {
-      // pega client_id
-      const { data: cli } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("user_id", user!.id)
-        .single();
+      // Use provided clientId or get from user
+      let targetClientId = clientId;
+      if (!targetClientId && user?.id) {
+        const { data: cli } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+        targetClientId = cli?.id;
+      }
+
+      if (!targetClientId) {
+        throw new Error("Cliente não encontrado");
+      }
 
       const payload = {
         category,
@@ -175,7 +186,7 @@ export default function NewVehicleForm({
         brand: brands.find((b) => b.codigo === brandCode)!.nome,
         model: models.find((m) => m.codigo === modelCode)!.nome,
         year: years.find((y) => y.codigo === yearCode)!.nome,
-        client_id: cli!.id,
+        client_id: targetClientId,
       };
 
       let res;
@@ -183,16 +194,18 @@ export default function NewVehicleForm({
         res = await supabase
           .from("vehicles")
           .update(payload)
-          .eq("id", initialData.id);
+          .eq("id", initialData.id)
+          .select()
+          .single();
       } else {
-        res = await supabase.from("vehicles").insert(payload);
+        res = await supabase.from("vehicles").insert(payload).select().single();
       }
       if (res.error) throw res.error;
 
       toast({
         title: initialData ? "Atualizado" : "Adicionado",
       });
-      onSuccess();
+      onSuccess(res.data);
     } catch (e) {
       console.error(e);
       toast({
@@ -212,20 +225,24 @@ export default function NewVehicleForm({
 
   return (
     <div className="space-y-6 w-full">
-      <DialogHeader>
-        <DialogTitle>
-          {initialData ? "Editar Veículo" : "Novo Veículo"}
-        </DialogTitle>
-      </DialogHeader>
+      {!simplified && (
+        <DialogHeader>
+          <DialogTitle>
+            {initialData ? "Editar Veículo" : "Novo Veículo"}
+          </DialogTitle>
+        </DialogHeader>
+      )}
 
       {/* 1) Preview da placa */}
-      <div className="flex justify-center">
-        <LicensePlate
-          plate={licensePlate || "AAA1A11"}
-          plateColor={previewColor}
-          plateTypeCode={previewCode}
-        />
-      </div>
+      {!simplified && (
+        <div className="flex justify-center">
+          <LicensePlate
+            plate={licensePlate || "AAA1A11"}
+            plateColor={previewColor}
+            plateTypeCode={previewCode}
+          />
+        </div>
+      )}
 
       {/* 2) Categoria */}
       <div className="flex gap-2">
@@ -338,11 +355,13 @@ export default function NewVehicleForm({
         maxLength={7}
         onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
       />
-      <Input
-        placeholder="Renavam (opcional)"
-        value={renavam}
-        onChange={(e) => setRenavam(e.target.value)}
-      />
+      {!simplified && (
+        <Input
+          placeholder="Renavam (opcional)"
+          value={renavam}
+          onChange={(e) => setRenavam(e.target.value)}
+        />
+      )}
 
       {/* 8) Botão salvar */}
       <Button onClick={handleSubmit} className="w-full" disabled={submitting}>

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ClientsService } from "@/services/clientsApi";
 import { Button } from "@/components/ui/button";
@@ -15,56 +15,63 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Search, Plus, Car } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import NewVehicleForm from "./NewVehicleForm";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown, Plus, User, Building2, Car, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import NewVehicleForm from "./NewVehicleForm";
 
-const formSchema = z.object({
-  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  document: z.string().min(11, "CPF/CNPJ inválido"),
+// --- validação com Zod ---
+const clientSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  document: z.string().min(11, "Documento deve ter pelo menos 11 caracteres"),
   type: z.enum(["physical", "juridical"]),
-  email: z.string().email("E-mail inválido").optional().or(z.literal("")),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
   address: z.string().optional(),
-  postalCode: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  addVehicle: z.boolean().optional(),
-  vehicleBrand: z.string().optional(),
-  vehicleModel: z.string().optional(),
-  vehicleYear: z.string().optional(),
-  vehicleLicensePlate: z.string().optional(),
+  addVehicle: z.boolean().default(false),
 });
 
+type ClientFormValues = z.infer<typeof clientSchema>;
+
 interface NewClientFormProps {
-  onSuccess: () => void;
+  onSuccess?: (client: any) => void;
+  onCancel?: () => void;
 }
 
-const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
+export default function NewClientForm({
+  onSuccess,
+  onCancel,
+}: NewClientFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [searchingCep, setSearchingCep] = useState(false);
-  const [searchingDocument, setSearchingDocument] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [addVehicle, setAddVehicle] = useState(false);
-  const [vehicleData, setVehicleData] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [vehicleData, setVehicleData] = useState<any>(null);
+  const [showVehicleForm, setShowVehicleForm] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<ClientFormValues>({
+    resolver: zodResolver(clientSchema),
     defaultValues: {
       name: "",
       document: "",
@@ -72,184 +79,67 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
       email: "",
       phone: "",
       address: "",
-      postalCode: "",
-      city: "",
-      state: "",
       addVehicle: false,
-      vehicleBrand: "",
-      vehicleModel: "",
-      vehicleYear: "",
-      vehicleLicensePlate: "",
     },
   });
 
-  // Função para buscar CEP
-  const handleSearchCep = async () => {
-    const cep = form.getValues("postalCode");
-    if (!cep || cep.length < 8) {
-      toast({
-        title: "CEP inválido",
-        description: "Por favor, digite um CEP válido",
-        variant: "destructive",
-      });
-      return;
-    }
+  const watchType = form.watch("type");
+  const watchAddVehicle = form.watch("addVehicle");
 
-    setSearchingCep(true);
-    try {
-      const formattedCep = cep.replace(/[^\d]/g, "");
-      const response = await fetch(
-        `https://viacep.com.br/ws/${formattedCep}/json/`
-      );
-
-      if (!response.ok) throw new Error("CEP não encontrado");
-
-      const data = await response.json();
-
-      if (data.erro) {
-        toast({
-          title: "CEP não encontrado",
-          description: "Verifique o CEP informado",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      form.setValue("address", `${data.logradouro}, ${data.bairro}`);
-      form.setValue("city", data.localidade);
-      form.setValue("state", data.uf);
-
-      toast({
-        title: "Endereço encontrado",
-        description: `${data.logradouro}, ${data.bairro}, ${data.localidade}-${data.uf}`,
-      });
-    } catch (error) {
-      console.error("Erro ao buscar CEP:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível encontrar o endereço",
-        variant: "destructive",
-      });
-    } finally {
-      setSearchingCep(false);
+  // Formata documento (CPF/CNPJ)
+  const formatDocument = (value: string, type: "physical" | "juridical") => {
+    const digits = value.replace(/\D/g, "");
+    if (type === "physical") {
+      return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else {
+      return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
     }
   };
 
-  // Função para buscar CNPJ
-  const handleSearchDocument = async () => {
-    const document = form.getValues("document");
+  const handleDocumentChange = (value: string) => {
     const type = form.getValues("type");
-
-    if (!document || document.length < 14 || type !== "juridical") {
-      if (type !== "juridical") {
-        toast({
-          title: "Tipo incorreto",
-          description:
-            "A busca de CNPJ só está disponível para Pessoa Jurídica",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "CNPJ inválido",
-          description: "Por favor, digite um CNPJ válido",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
-
-    setSearchingDocument(true);
-    try {
-      const formattedCnpj = document.replace(/[^\d]/g, "");
-      const response = await fetch(
-        `https://brasilapi.com.br/api/cnpj/v1/${formattedCnpj}`
-      );
-
-      if (!response.ok) throw new Error("CNPJ não encontrado");
-
-      const data = await response.json();
-
-      form.setValue("name", data.razao_social);
-      form.setValue("email", data.email || "");
-      form.setValue("phone", data.ddd_telefone_1 || "");
-
-      // Se tiver endereço completo
-      if (data.cep) {
-        form.setValue("postalCode", data.cep);
-        form.setValue(
-          "address",
-          `${data.logradouro}, ${data.numero}, ${data.bairro}`
-        );
-        form.setValue("city", data.municipio);
-        form.setValue("state", data.uf);
-      }
-
-      toast({
-        title: "Empresa encontrada",
-        description: data.razao_social,
-      });
-    } catch (error) {
-      console.error("Erro ao buscar CNPJ:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível encontrar os dados da empresa",
-        variant: "destructive",
-      });
-    } finally {
-      setSearchingDocument(false);
-    }
+    const formatted = formatDocument(value, type);
+    form.setValue("document", formatted);
   };
 
   const handleAddVehicleChange = (checked: boolean) => {
-    setAddVehicle(checked);
     form.setValue("addVehicle", checked);
+    setShowVehicleForm(checked);
   };
 
   const onVehicleFormSuccess = (vehicleData?: any) => {
     if (vehicleData) {
       setVehicleData(vehicleData);
       // Auto-fill some data in the form for display purposes
-      form.setValue("vehicleBrand", vehicleData.brand || "");
-      form.setValue("vehicleModel", vehicleData.model || "");
-      form.setValue("vehicleYear", vehicleData.year || "");
-      form.setValue("vehicleLicensePlate", vehicleData.licensePlate || "");
-
+      setShowVehicleForm(false);
       toast({
-        title: "Veículo adicionado",
-        description:
-          "As informações do veículo foram salvas e serão associadas ao cliente",
+        title: "Veículo configurado",
+        description: "Veículo será adicionado após criar o cliente.",
       });
     }
-    setIsDialogOpen(false);
   };
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: ClientFormValues) => {
     if (!user) {
       toast({
         title: "Erro",
-        description: "Você precisa estar logado para criar um cliente",
+        description: "Usuário não autenticado",
         variant: "destructive",
       });
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      const fullAddress =
-        values.address && values.city
-          ? `${values.address}, ${values.city}${
-              values.state ? `-${values.state}` : ""
-            }`
-          : undefined;
-
       const newClient = {
         name: values.name,
         document: values.document,
         type: values.type,
-        email: values.email || undefined,
-        phone: values.phone || undefined,
-        address: fullAddress,
+        email: values.email || null,
+        phone: values.phone || null,
+        address: values.address || null,
+        active: true,
         createdBy: user.id,
       };
 
@@ -259,419 +149,313 @@ const NewClientForm: React.FC<NewClientFormProps> = ({ onSuccess }) => {
       if (values.addVehicle && client && vehicleData) {
         // Aqui implementaríamos a lógica para salvar o veículo associado ao cliente
         console.log("Salvando veículo para cliente", client.id, vehicleData);
-
-        toast({
-          title: "Veículo registrado",
-          description: "O veículo foi associado ao cliente com sucesso",
-        });
       }
 
       toast({
         title: "Cliente criado",
-        description: "Cliente cadastrado com sucesso",
+        description: "Cliente criado com sucesso!",
       });
 
-      onSuccess();
-    } catch (error) {
+      onSuccess?.(client);
+      form.reset();
+      setVehicleData(null);
+      setShowVehicleForm(false);
+    } catch (error: any) {
       console.error("Erro ao criar cliente:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível criar o cliente",
+        description: error.message || "Erro ao criar cliente",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-          <FormField
-            control={form.control}
-            name="type"
-            render={({ field }) => (
-              <FormItem className="space-y-3">
-                <FormLabel>Tipo de Cliente</FormLabel>
-                <FormControl>
-                  <RadioGroup
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                    className="flex space-x-4"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="physical" id="type-physical" />
-                      <label
-                        htmlFor="type-physical"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Pessoa Física
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="juridical" id="type-juridical" />
-                      <label
-                        htmlFor="type-juridical"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        Pessoa Jurídica
-                      </label>
-                    </div>
-                  </RadioGroup>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <User className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold">Novo Cliente</h2>
+          <p className="text-sm text-muted-foreground">
+            Preencha as informações do cliente
+          </p>
+        </div>
+      </div>
 
-          <div className="flex gap-4 items-start">
-            <FormField
-              control={form.control}
-              name="document"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>
-                    {form.watch("type") === "physical" ? "CPF" : "CNPJ"}
-                  </FormLabel>
-                  <div className="flex gap-2">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Tipo de Cliente */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Tipo de Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        className="flex space-x-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="physical" id="physical" />
+                          <Label htmlFor="physical">Pessoa Física</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="juridical" id="juridical" />
+                          <Label htmlFor="juridical">Pessoa Jurídica</Label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Informações Pessoais */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Informações Básicas</CardTitle>
+              <CardDescription>
+                {watchType === "physical"
+                  ? "Dados pessoais do cliente"
+                  : "Dados da empresa"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {watchType === "physical" ? "Nome Completo" : "Razão Social"}
+                    </FormLabel>
                     <FormControl>
                       <Input
-                        {...field}
                         placeholder={
-                          form.watch("type") === "physical"
-                            ? "123.456.789-00"
-                            : "12.345.678/0001-90"
+                          watchType === "physical"
+                            ? "Ex: João Silva Santos"
+                            : "Ex: Empresa LTDA"
                         }
+                        {...field}
                       />
                     </FormControl>
-                    {form.watch("type") === "juridical" && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        disabled={
-                          !field.value ||
-                          field.value.length < 14 ||
-                          searchingDocument
-                        }
-                        onClick={handleSearchDocument}
-                      >
-                        {searchingDocument ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Search className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {form.watch("type") === "physical"
-                    ? "Nome Completo"
-                    : "Razão Social"}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder={
-                      form.watch("type") === "physical"
-                        ? "João da Silva"
-                        : "Empresa LTDA"
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="flex gap-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>E-mail</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="email"
-                      placeholder="exemplo@email.com"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Telefone</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="(11) 98765-4321" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="flex gap-4 items-start">
-            <FormField
-              control={form.control}
-              name="postalCode"
-              render={({ field }) => (
-                <FormItem className="w-40">
-                  <FormLabel>CEP</FormLabel>
-                  <div className="flex gap-2">
+              <FormField
+                control={form.control}
+                name="document"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {watchType === "physical" ? "CPF" : "CNPJ"}
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="00000-000" />
+                      <Input
+                        placeholder={
+                          watchType === "physical"
+                            ? "000.000.000-00"
+                            : "00.000.000/0000-00"
+                        }
+                        value={field.value}
+                        onChange={(e) => handleDocumentChange(e.target.value)}
+                        maxLength={watchType === "physical" ? 14 : 18}
+                      />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Informações de Contato */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">Contato</CardTitle>
+              <CardDescription>Informações para comunicação</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (opcional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="email@exemplo.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone (opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(11) 99999-9999" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endereço (opcional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Rua, número, bairro, cidade - UF"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Veículo (Opcional) */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Car className="h-4 w-4" />
+                Veículo
+              </CardTitle>
+              <CardDescription>
+                Adicione um veículo durante o cadastro do cliente
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="addVehicle"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={handleAddVehicleChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Adicionar veículo</FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Marque esta opção para cadastrar um veículo junto com o cliente
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              {watchAddVehicle && (
+                <div className="mt-4">
+                  {!showVehicleForm && !vehicleData && (
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      disabled={
-                        !field.value || field.value.length < 8 || searchingCep
-                      }
-                      onClick={handleSearchCep}
+                      onClick={() => setShowVehicleForm(true)}
+                      className="w-full"
                     >
-                      {searchingCep ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Search className="h-4 w-4" />
-                      )}
+                      <Plus className="h-4 w-4 mr-2" />
+                      Configurar Veículo
                     </Button>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  )}
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Endereço</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Rua, número, bairro" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="flex gap-4">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>Cidade</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="São Paulo" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="state"
-              render={({ field }) => (
-                <FormItem className="w-20">
-                  <FormLabel>UF</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="SP" maxLength={2} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="addVehicle"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) => {
-                      field.onChange(checked);
-                      handleAddVehicleChange(checked === true);
-                    }}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>Adicionar Veículo</FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Deseja cadastrar um veículo para este cliente?
-                  </p>
-                </div>
-              </FormItem>
-            )}
-          />
-
-          {addVehicle && (
-            <div className="border rounded-md p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-medium">Informações do Veículo</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  <Car className="mr-2 h-4 w-4" />
-                  Adicionar Veículo
-                </Button>
-              </div>
-
-              {vehicleData ? (
-                <div className="bg-muted/20 p-4 rounded-md mb-4">
-                  <h4 className="font-medium mb-2">Veículo registrado</h4>
-                  <p className="text-sm mb-1">
-                    <span className="font-medium">Marca:</span>{" "}
-                    {vehicleData.brand}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="font-medium">Modelo:</span>{" "}
-                    {vehicleData.model}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="font-medium">Ano:</span> {vehicleData.year}
-                  </p>
-                  <p className="text-sm mb-1">
-                    <span className="font-medium">Placa:</span>{" "}
-                    {vehicleData.licensePlate}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground mb-4">
-                  Você poderá adicionar mais veículos após cadastrar o cliente.
-                </p>
-              )}
-
-              {!vehicleData && (
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="add-vehicle">
-                    <AccordionTrigger>Adicionar manualmente</AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="vehicleLicensePlate"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Placa do Veículo</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="AAA-0000 ou AAA0000"
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="vehicleBrand"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Marca</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="Ex: Honda, Toyota, Fiat..."
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="vehicleModel"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Modelo</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="Ex: Civic, Corolla, Uno..."
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="vehicleYear"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Ano</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Ex: 2020/2021" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                  {showVehicleForm && (
+                    <div className="border rounded-lg p-4 bg-muted/50">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium">Dados do Veículo</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowVehicleForm(false)}
+                        >
+                          Cancelar
+                        </Button>
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              )}
-            </div>
-          )}
+                      <NewVehicleForm
+                        onSuccess={onVehicleFormSuccess}
+                        simplified={true}
+                      />
+                    </div>
+                  )}
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onSuccess}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Cadastrar Cliente
+                  {vehicleData && !showVehicleForm && (
+                    <div className="border rounded-lg p-4 bg-green-50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-green-800">
+                            {vehicleData.brand} {vehicleData.model}
+                          </p>
+                          <p className="text-sm text-green-600">
+                            {vehicleData.licensePlate} • {vehicleData.year}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowVehicleForm(true)}
+                        >
+                          Editar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Botões de Ação */}
+          <div className="flex gap-3 pt-4">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+            )}
+            <Button type="submit" disabled={isSubmitting} className="flex-1">
+              {isSubmitting ? "Criando..." : "Criar Cliente"}
             </Button>
           </div>
         </form>
       </Form>
-
-      {/* Modal para adicionar veículo usando o formulário completo */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar Veículo</DialogTitle>
-          </DialogHeader>
-          <NewVehicleForm onSuccess={onVehicleFormSuccess} simplified={false} />
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   );
-};
-
-export default NewClientForm;
+}
