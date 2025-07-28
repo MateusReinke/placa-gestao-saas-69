@@ -1,3 +1,4 @@
+
 // src/components/Orders/OrdersKanban.tsx
 import React from "react";
 import {
@@ -167,8 +168,7 @@ const OrdersKanban: React.FC<OrdersKanbanProps> = ({
                               <div className="text-xs flex items-center gap-1 text-muted-foreground">
                                 <Car className="h-3 w-3" />
                                 <span className="font-medium text-foreground">
-                                  {order.vehicle?.placa ||
-                                    order.license_plate ||
+                                  {order.vehicle?.license_plate ||
                                     "Placa não definida"}
                                 </span>
                               </div>

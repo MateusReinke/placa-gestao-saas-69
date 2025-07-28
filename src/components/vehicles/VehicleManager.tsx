@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import {
@@ -8,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ApiService } from "@/services/serviceTypesApi";
+import { ClientsService } from "@/services/clientsApi";
 import { Client } from "@/types";
 import NewVehicleForm from "@/components/forms/NewVehicleForm";
 import VehicleTable from "@/components/vehicles/VehicleTable";
@@ -92,7 +93,7 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({ initialVehicles }) => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const fetchedClients = await ApiService.getClients();
+        const fetchedClients = await ClientsService.getClients();
         setClients(fetchedClients);
       } catch (error) {
         console.error("Erro ao buscar clientes:", error);
@@ -108,7 +109,7 @@ const VehicleManager: React.FC<VehicleManagerProps> = ({ initialVehicles }) => {
   }, [toast]);
 
   // Add/edit vehicle
-  const handleAddEditVehicle = (vehicle: Vehicle | null) => {
+  const handleAddEditVehicle = (vehicle?: Vehicle | null) => {
     if (!vehicle) {
       setIsDialogOpen(false);
       return;

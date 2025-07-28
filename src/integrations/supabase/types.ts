@@ -22,6 +22,7 @@ export type Database = {
           phone: string | null
           type: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           active?: boolean | null
@@ -35,6 +36,7 @@ export type Database = {
           phone?: string | null
           type: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           active?: boolean | null
@@ -48,19 +50,39 @@ export type Database = {
           phone?: string | null
           type?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "clients_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["seller_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
+        ]
+      }
+      dashboard_layouts: {
+        Row: {
+          last_updated: string | null
+          layout_data: Json
+          user_id: string
+        }
+        Insert: {
+          last_updated?: string | null
+          layout_data: Json
+          user_id: string
+        }
+        Update: {
+          last_updated?: string | null
+          layout_data?: Json
+          user_id?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "clients_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
+            foreignKeyName: "dashboard_layouts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -149,22 +171,8 @@ export type Database = {
             foreignKeyName: "inventory_movements_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_movements_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inventory_movements_responsible_id_fkey"
-            columns: ["responsible_id"]
-            isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["seller_id"]
           },
           {
             foreignKeyName: "inventory_movements_responsible_id_fkey"
@@ -174,6 +182,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      n8n_fila_mensagens: {
+        Row: {
+          id: number
+          id_mensagem: string
+          mensagem: string
+          telefone: string
+          timestamp: string
+        }
+        Insert: {
+          id?: number
+          id_mensagem: string
+          mensagem: string
+          telefone: string
+          timestamp: string
+        }
+        Update: {
+          id?: number
+          id_mensagem?: string
+          mensagem?: string
+          telefone?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
+      n8n_historico_mensagens: {
+        Row: {
+          created_at: string
+          id: number
+          message: Json
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          message: Json
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          message?: Json
+          session_id?: string
+        }
+        Relationships: []
+      }
+      n8n_user_sessions: {
+        Row: {
+          created_at: string | null
+          phone: string
+          state: string
+        }
+        Insert: {
+          created_at?: string | null
+          phone: string
+          state: string
+        }
+        Update: {
+          created_at?: string | null
+          phone?: string
+          state?: string
+        }
+        Relationships: []
       }
       order_statuses: {
         Row: {
@@ -204,43 +275,43 @@ export type Database = {
       }
       orders: {
         Row: {
+          cancel_reason: string | null
           client_id: string
           created_at: string | null
-          created_by: string
-          estimated_delivery_date: string | null
+          created_by: string | null
           id: string
-          license_plate: string
-          notes: string | null
+          message: string | null
+          order_number: string | null
           service_type_id: string
-          status_id: string
-          updated_at: string | null
-          value: number
+          status_id: string | null
+          value: number | null
+          vehicle_id: string
         }
         Insert: {
+          cancel_reason?: string | null
           client_id: string
           created_at?: string | null
-          created_by: string
-          estimated_delivery_date?: string | null
+          created_by?: string | null
           id?: string
-          license_plate: string
-          notes?: string | null
+          message?: string | null
+          order_number?: string | null
           service_type_id: string
-          status_id: string
-          updated_at?: string | null
-          value: number
+          status_id?: string | null
+          value?: number | null
+          vehicle_id: string
         }
         Update: {
+          cancel_reason?: string | null
           client_id?: string
           created_at?: string | null
-          created_by?: string
-          estimated_delivery_date?: string | null
+          created_by?: string | null
           id?: string
-          license_plate?: string
-          notes?: string | null
+          message?: string | null
+          order_number?: string | null
           service_type_id?: string
-          status_id?: string
-          updated_at?: string | null
-          value?: number
+          status_id?: string | null
+          value?: number | null
+          vehicle_id?: string
         }
         Relationships: [
           {
@@ -249,20 +320,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["client_id"]
-          },
-          {
-            foreignKeyName: "orders_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["seller_id"]
           },
           {
             foreignKeyName: "orders_created_by_fkey"
@@ -275,22 +332,8 @@ export type Database = {
             foreignKeyName: "orders_service_type_id_fkey"
             columns: ["service_type_id"]
             isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["service_type_id"]
-          },
-          {
-            foreignKeyName: "orders_service_type_id_fkey"
-            columns: ["service_type_id"]
-            isOneToOne: false
             referencedRelation: "service_types"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["status_id"]
           },
           {
             foreignKeyName: "orders_status_id_fkey"
@@ -299,23 +342,54 @@ export type Database = {
             referencedRelation: "order_statuses"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "orders_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      plate_types: {
+        Row: {
+          code: string
+          color: string | null
+          id: string
+          label: string
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          id?: string
+          label: string
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          id?: string
+          label?: string
+        }
+        Relationships: []
       }
       service_categories: {
         Row: {
           created_at: string | null
           id: string
           name: string
+          prefix: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
+          prefix?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
+          prefix?: string | null
         }
         Relationships: []
       }
@@ -399,34 +473,43 @@ export type Database = {
       vehicles: {
         Row: {
           brand: string
+          category: string
           client_id: string
           color: string | null
           created_at: string | null
           id: string
           license_plate: string
           model: string
+          plate_type_id: string
+          renavam: string | null
           updated_at: string | null
           year: string
         }
         Insert: {
           brand: string
+          category?: string
           client_id: string
           color?: string | null
           created_at?: string | null
           id?: string
           license_plate: string
           model: string
+          plate_type_id: string
+          renavam?: string | null
           updated_at?: string | null
           year: string
         }
         Update: {
           brand?: string
+          category?: string
           client_id?: string
           color?: string | null
           created_at?: string | null
           id?: string
           license_plate?: string
           model?: string
+          plate_type_id?: string
+          renavam?: string | null
           updated_at?: string | null
           year?: string
         }
@@ -439,43 +522,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "vehicles_client_id_fkey"
-            columns: ["client_id"]
+            foreignKeyName: "vehicles_plate_type_id_fkey"
+            columns: ["plate_type_id"]
             isOneToOne: false
-            referencedRelation: "complete_orders"
-            referencedColumns: ["client_id"]
+            referencedRelation: "plate_types"
+            referencedColumns: ["id"]
           },
         ]
       }
     }
     Views: {
-      complete_orders: {
-        Row: {
-          client_document: string | null
-          client_id: string | null
-          client_name: string | null
-          client_type: string | null
-          created_at: string | null
-          estimated_delivery_date: string | null
-          id: string | null
-          license_plate: string | null
-          notes: string | null
-          seller_id: string | null
-          seller_name: string | null
-          service_type_id: string | null
-          service_type_name: string | null
-          status_color: string | null
-          status_id: string | null
-          status_name: string | null
-          updated_at: string | null
-          value: number | null
-          vehicle_brand: string | null
-          vehicle_color: string | null
-          vehicle_model: string | null
-          vehicle_year: string | null
-        }
-        Relationships: []
-      }
       inventory_status: {
         Row: {
           category: string | null
