@@ -581,6 +581,10 @@ export type Database = {
           status: string
         }[]
       }
+      validate_document: {
+        Args: { doc: string; doc_type: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
