@@ -140,7 +140,7 @@ export default function NewClientForm({
         phone: values.phone || null,
         address: values.address || null,
         active: true,
-        createdBy: user.id,
+        created_by: user.id,
       };
 
       const client = await ClientsService.createClient(newClient);

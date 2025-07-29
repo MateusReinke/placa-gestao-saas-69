@@ -42,16 +42,33 @@ function normalize(o: OrderRaw): OrderUI {
   return {
     id: o.id,
     order_number: o.order_number ?? "",
-    client: o.client ? { id: o.client.id, name: o.client.name } : undefined,
-    serviceType: o.serviceType
-      ? { id: o.serviceType.id, name: o.serviceType.name }
-      : undefined,
-    vehicle: o.vehicle
-      ? { id: o.vehicle.id, license_plate: o.vehicle.license_plate }
-      : undefined,
-    status: o.status
-      ? { id: o.status.id, name: o.status.name, color: o.status.color }
-      : undefined,
+    client: o.client ? { 
+      id: o.client.id, 
+      name: o.client.name,
+      document: o.client.document || '',
+      type: o.client.type || 'physical',
+      created_by: o.client.created_by || ''
+    } : undefined,
+    serviceType: o.serviceType ? { 
+      id: o.serviceType.id, 
+      name: o.serviceType.name,
+      category_id: o.serviceType.category_id || ''
+    } : undefined,
+    vehicle: o.vehicle ? { 
+      id: o.vehicle.id, 
+      license_plate: o.vehicle.license_plate,
+      brand: o.vehicle.brand || '',
+      model: o.vehicle.model || '',
+      year: o.vehicle.year || '',
+      client_id: o.vehicle.client_id || '',
+      plate_type_id: o.vehicle.plate_type_id || ''
+    } : undefined,
+    status: o.status ? { 
+      id: o.status.id, 
+      name: o.status.name, 
+      color: o.status.color || '',
+      sort_order: o.status.sort_order || 0
+    } : undefined,
     status_id: o.status_id,
     value: o.value,
     created_at: o.created_at,
@@ -76,7 +93,7 @@ export class OrdersService {
   /* ---------- CREATE ---------- */
   static async createOrder(payload: NewOrder): Promise<OrderUI> {
     const { data, error } = await supabase
-      .from<OrderRaw>("orders")
+      .from("orders")
       .insert([payload])
       .select(
         "*, client:clients(*), serviceType:service_types(*), vehicle:vehicles(*), status:order_statuses(*), order_number"
@@ -107,7 +124,7 @@ export class OrdersService {
     payload: UpdateOrderPayload
   ): Promise<OrderUI> {
     const { data, error } = await supabase
-      .from<OrderRaw>("orders")
+      .from("orders")
       .update(stripUndefined(payload)) // nunca envia undefined
       .eq("id", orderId)
       .select(
