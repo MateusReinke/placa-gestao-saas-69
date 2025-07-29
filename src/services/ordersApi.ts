@@ -61,7 +61,8 @@ function normalize(o: OrderRaw): OrderUI {
       model: o.vehicle.model || '',
       year: o.vehicle.year || '',
       client_id: o.vehicle.client_id || '',
-      plate_type_id: o.vehicle.plate_type_id || ''
+      plate_type_id: o.vehicle.plate_type_id || '',
+      category: o.vehicle.category || 'carros'
     } : undefined,
     status: o.status ? { 
       id: o.status.id, 
