@@ -18,7 +18,7 @@ export class VehicleService {
   /** Busca todos os veículos de um cliente */
   static async getClientVehicles(clientId: string): Promise<Vehicle[]> {
     const { data, error } = await supabase
-      .from<Vehicle>("vehicles")
+      .from("vehicles")
       .select("*")
       .eq("client_id", clientId);
     if (error) throw error;
@@ -28,7 +28,7 @@ export class VehicleService {
   /** Cria um novo veículo */
   static async createVehicle(payload: NewVehicle): Promise<Vehicle> {
     const { data, error } = await supabase
-      .from<Vehicle>("vehicles")
+      .from("vehicles")
       .insert([payload])
       .select()
       .single();

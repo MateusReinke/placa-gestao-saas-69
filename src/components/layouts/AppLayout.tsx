@@ -35,13 +35,13 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const location = useLocation();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = React.useState(false);
 
-  const initials = user?.name
-    ? user.name
+  const initials = userProfile?.name
+    ? userProfile.name
         .split(' ')
         .map(n => n[0])
         .slice(0, 2)
@@ -265,12 +265,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 )}
               >
                 <Avatar className="h-8 w-8 border border-sidebar-border">
-                  <AvatarImage src={user?.photo_url || user?.photo} />
+                  <AvatarImage src={userProfile?.photo_url || "/placeholder.svg"} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 {!collapsed && (
                   <div className="flex flex-col overflow-hidden">
-                    <span className="text-sm font-medium truncate">{user?.name}</span>
+                    <span className="text-sm font-medium truncate">{userProfile?.name}</span>
                     <span className="text-xs text-sidebar-foreground/70 truncate">{user?.email}</span>
                   </div>
                 )}
@@ -279,11 +279,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <DropdownMenuContent align="start" className="w-56">
               <div className="flex items-center gap-2 p-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.photo_url || user?.photo} />
+                  <AvatarImage src={userProfile?.photo_url || "/placeholder.svg"} />
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col space-y-0.5">
-                  <span className="text-sm font-medium">{user?.name}</span>
+                  <span className="text-sm font-medium">{userProfile?.name}</span>
                   <span className="text-xs text-muted-foreground">{user?.email}</span>
                 </div>
               </div>

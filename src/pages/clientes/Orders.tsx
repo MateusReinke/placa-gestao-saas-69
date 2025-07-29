@@ -80,7 +80,6 @@ const ClientOrders = () => {
               </DialogHeader>
               {clientId && (
                 <NewOrderForm
-                  clientId={clientId}
                   onSuccess={(newOrder) =>
                     setOrders((prev) => [newOrder, ...prev])
                   }

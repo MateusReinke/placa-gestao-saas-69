@@ -220,7 +220,13 @@ const AdminServices = () => {
           v.map((s) => (s.id === editId ? { ...s, ...up } : s))
         );
       } else {
-        const nw = await ApiService.createServiceType(vals);
+        const nw = await ApiService.createServiceType({
+          name: vals.name || '',
+          description: vals.description,
+          category_id: vals.category_id || '',
+          active: vals.active ?? true,
+          price: vals.price || 0
+        });
         setServices((v) => [...v, nw]);
       }
       setIsDialogOpen(false);

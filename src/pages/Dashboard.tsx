@@ -134,10 +134,10 @@ const Dashboard = () => {
                     {stats?.totalOrders
                       ? stats.totalOrders -
                         (stats.ordersByStatus.find(
-                          (s) => s.statusName === "Concluído"
+                          (s) => s.status_name === "Concluído"
                         )?.count || 0) -
                         (stats.ordersByStatus.find(
-                          (s) => s.statusName === "Cancelado"
+                          (s) => s.status_name === "Cancelado"
                         )?.count || 0)
                       : 0}
                   </div>
@@ -273,14 +273,14 @@ const Dashboard = () => {
                 <CardContent>
                   {stats?.ordersByStatus && stats.ordersByStatus.length > 0 ? (
                     <div className="space-y-4">
-                      {stats.ordersByStatus.map((statusStat) => (
-                        <div key={statusStat.statusName} className="space-y-2">
+                      {stats.ordersByStatus.map((status) => (
+                        <div key={status.status_name} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">
-                              {statusStat.statusName}
+                              {status.status_name}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                              {statusStat.count} pedidos
+                              {status.count} pedidos
                             </span>
                           </div>
                           <div className="h-2 bg-secondary rounded overflow-hidden">
@@ -288,7 +288,7 @@ const Dashboard = () => {
                               className="h-full bg-primary"
                               style={{
                                 width: `${
-                                  (statusStat.count / stats.totalOrders) * 100
+                                  (status.count / stats.totalOrders) * 100
                                 }%`,
                               }}
                             />

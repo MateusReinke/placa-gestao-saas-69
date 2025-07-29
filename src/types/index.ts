@@ -100,6 +100,11 @@ export interface Order {
   estimated_delivery_date?: string | null;
   notes?: string | null;
 
+  // Additional properties for compatibility
+  statusId?: string; // Alias for status_id
+  createdAt?: string; // Alias for created_at
+  licensePlate?: string; // From vehicle join
+
   client?: Client; // Join
   seller?: User; // Join
   serviceType?: ServiceType; // Join

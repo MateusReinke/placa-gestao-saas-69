@@ -44,7 +44,7 @@ export class CategoryService {
 
 /* --------- SERVIÇOS --------- */
 export class ApiService {
-  // join para já retornar o nome da categoria
+  // ========= SERVICE TYPES =========
   static async getServiceTypes(): Promise<ServiceType[]> {
     const { data, error } = await supabase
       .from("service_types")
@@ -86,5 +86,40 @@ export class ApiService {
       .delete()
       .eq("id", id);
     if (error) throw error;
+  }
+
+  // ========= DASHBOARD =========
+  static async getDashboardStats(userId?: string, role?: string): Promise<any> {
+    // Import e use o DashboardService
+    const { DashboardService } = await import("./dashboardApi");
+    return DashboardService.getAdminDashboardStats();
+  }
+
+  // ========= ORDERS =========
+  static async getOrders(userId?: string, role?: string): Promise<any[]> {
+    const { OrdersService } = await import("./ordersApi");
+    return OrdersService.getOrders(userId, role);
+  }
+
+  static async getOrderStatuses(): Promise<any[]> {
+    const { OrderStatusesService } = await import("./orderStatusesApi");
+    return OrderStatusesService.getOrderStatuses();
+  }
+
+  static async updateOrder(orderId: string, payload: any): Promise<any> {
+    const { OrdersService } = await import("./ordersApi");
+    // Mapear statusId para status_id se necessário
+    const mappedPayload = { ...payload };
+    if (payload.statusId) {
+      mappedPayload.status_id = payload.statusId;
+      delete mappedPayload.statusId;
+    }
+    return OrdersService.updateOrder(orderId, mappedPayload);
+  }
+
+  // ========= CLIENTS =========
+  static async getClients(userId?: string, role?: string): Promise<any[]> {
+    const { ClientsService } = await import("./clientsApi");
+    return ClientsService.getClients();
   }
 }

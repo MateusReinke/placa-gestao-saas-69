@@ -79,6 +79,10 @@ function normalize(o: OrderRaw): OrderUI {
     created_by: o.created_by,
     /* o frontend continua chamando de notes  */
     notes: o.message ?? "",
+    /* Adicionar aliases para compatibilidade */
+    statusId: o.status_id,
+    createdAt: o.created_at,
+    licensePlate: o.vehicle?.license_plate,
   };
 }
 

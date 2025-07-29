@@ -1,381 +1,300 @@
-// src/pages/clientes/Vehicles.tsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import AppLayout from "@/components/layouts/AppLayout";
 import { Button } from "@/components/ui/button";
-import {
-  PlusCircle,
-  Loader2,
-  Car,
-  Bike,
-  Truck,
-  MoreVertical,
-} from "lucide-react";
+import { Search, PlusCircle, Eye, Pencil, XCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import NewVehicleForm from "@/components/forms/NewVehicleForm";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
-import LicensePlate from "@/components/LicensePlate";
-import NewVehicleForm from "@/components/forms/NewVehicleForm";
+import { toast } from "sonner";
 
-// Tipos
-type Vehicle = {
+interface Vehicle {
   id: string;
+  license_plate: string;
   brand: string;
   model: string;
   year: string;
-  license_plate: string;
-  renavam: string | null;
-  plate_type_id: string;
-  client_id: string;
-};
-type PlateType = { id: string; code: string; label: string; color: string };
+  category: "carros" | "motos" | "caminhoes";
+  color?: string;
+  renavam?: string;
+}
 
-export default function Vehicles() {
+type VehicleCategory = "all" | "carros" | "motos" | "caminhoes";
+
+const ClientVehicles = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
-
-  const [clientId, setClientId] = useState<string | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [plateTypes, setPlateTypes] = useState<PlateType[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Dialog Add/Edit
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<VehicleCategory>("all");
+  const [clientId, setClientId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
 
-  // Dialog Delete
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [toDelete, setToDelete] = useState<Vehicle | null>(null);
-  const [confirmPlate, setConfirmPlate] = useState("");
-
-  // Filtros
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<
-    "all" | "carros" | "motos" | "caminhoes"
-  >("all");
-
-  // 1) Cliente
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error) throw error;
-        setClientId(data.id);
-      })
-      .catch(() =>
-        toast({
-          title: "Erro",
-          description: "Não achei seu cliente.",
-          variant: "destructive",
-        })
-      );
-  }, [user, toast]);
 
-  // 2) Dados
-  useEffect(() => {
-    if (!clientId) return;
-    setLoading(true);
-    Promise.all([
-      supabase.from<Vehicle>("vehicles").select("*").eq("client_id", clientId),
-      supabase.from<PlateType>("plate_types").select("*"),
-    ])
-      .then(([vRes, ptRes]) => {
-        if (vRes.error) throw vRes.error;
-        if (ptRes.error) throw ptRes.error;
-        setVehicles(vRes.data || []);
-        setPlateTypes(ptRes.data || []);
-      })
-      .catch(() =>
-        toast({
-          title: "Erro",
-          description: "Falha ao carregar.",
-          variant: "destructive",
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [clientId, toast]);
+    const fetchClientAndVehicles = async () => {
+      try {
+        // First, find the client
+        const { data: client, error: clientError } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
 
-  // New/Edit handlers
-  const handleNew = () => {
-    setEditVehicle(null);
-    setIsDialogOpen(true);
-  };
-  const handleEdit = (v: Vehicle) => {
-    setEditVehicle(v);
-    setIsDialogOpen(true);
-  };
-  const handleSuccess = () => {
-    setIsDialogOpen(false);
-    if (!clientId) return;
-    supabase
-      .from<Vehicle>("vehicles")
-      .select("*")
-      .eq("client_id", clientId)
-      .then(({ data }) => data && setVehicles(data));
-  };
+        if (clientError || !client) {
+          toast.error("Erro", {
+            description: "Não foi possível encontrar seu perfil de cliente.",
+          });
+          return;
+        }
 
-  // Delete handlers
-  const openDelete = (v: Vehicle) => {
-    setToDelete(v);
-    setConfirmPlate("");
-    setDeleteDialogOpen(true);
-  };
-  const handleDelete = async () => {
-    if (!toDelete || confirmPlate !== toDelete.license_plate) return;
-    const { error } = await supabase
-      .from("vehicles")
-      .delete()
-      .eq("id", toDelete.id);
-    if (error)
-      toast({
-        title: "Erro",
-        description: "Não removido.",
-        variant: "destructive",
-      });
-    else {
-      setVehicles((prev) => prev.filter((x) => x.id !== toDelete.id));
-      toast({ title: "Removido", description: "Veículo removido." });
+        setClientId(client.id);
+
+        // Then fetch vehicles
+        await fetchVehicles(client.id);
+      } catch (error) {
+        console.error("Error fetching client vehicles:", error);
+        toast.error("Erro", {
+          description: "Erro ao carregar veículos.",
+        });
+      }
+    };
+
+    fetchClientAndVehicles();
+  }, [user]);
+
+  const fetchVehicles = async (clientId: string) => {
+    try {
+      const { data: vehicles, error } = await supabase
+        .from("vehicles")
+        .select("*")
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      if (vehicles) setVehicles(vehicles);
+    } catch (error) {
+      console.error("Error fetching vehicles:", error);
+      toast.error("Erro ao carregar veículos");
     }
-    setDeleteDialogOpen(false);
   };
 
-  // Filtragem
-  const filtered = useMemo(
-    () =>
-      vehicles.filter((v) => {
-        const q = searchQuery.toLowerCase();
-        const matchText =
-          v.license_plate.toLowerCase().includes(q) ||
-          v.brand.toLowerCase().includes(q) ||
-          v.model.toLowerCase().includes(q);
-        const pt = plateTypes.find((t) => t.id === v.plate_type_id)?.code || "";
-        const matchType =
-          filterType === "all" ||
-          (filterType === "carros" &&
-            !pt.includes("moto") &&
-            !pt.includes("caminhao")) ||
-          (filterType === "motos" && pt.includes("moto")) ||
-          (filterType === "caminhoes" && pt.includes("caminhao"));
-        return matchText && matchType;
-      }),
-    [vehicles, searchQuery, filterType, plateTypes]
-  );
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    try {
+      const { error } = await supabase
+        .from("vehicles")
+        .delete()
+        .eq("id", vehicleId);
 
-  // Copiar
-  const copyToClipboard = (txt: string, label: string) => {
-    navigator.clipboard.writeText(txt);
-    toast({ title: `${label} copiado`, description: txt });
+      if (error) throw error;
+
+      setVehicles((prev) => prev.filter((v) => v.id !== vehicleId));
+      toast.success("Veículo removido com sucesso");
+    } catch (error) {
+      console.error("Error deleting vehicle:", error);
+      toast.error("Erro ao remover veículo");
+    }
+  };
+
+  const onVehicleAdded = (newVehicle: Vehicle) => {
+    setVehicles((prev) => [newVehicle, ...prev]);
+    setIsDialogOpen(false);
+    toast.success("Veículo adicionado com sucesso");
+  };
+
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesSearch =
+      vehicle.license_plate.toLowerCase().includes(search.toLowerCase()) ||
+      vehicle.brand.toLowerCase().includes(search.toLowerCase()) ||
+      vehicle.model.toLowerCase().includes(search.toLowerCase());
+
+    const matchesCategory = 
+      selectedCategory === "all" || vehicle.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const getCategoryBadgeColor = (category: string) => {
+    switch (category) {
+      case "carros":
+        return "bg-blue-100 text-blue-800";
+      case "motos":
+        return "bg-green-100 text-green-800";
+      case "caminhoes":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case "carros":
+        return "Carro";
+      case "motos":
+        return "Moto";
+      case "caminhoes":
+        return "Caminhão";
+      default:
+        return "Outros";
+    }
   };
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Linha 1 */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Meus Veículos</h1>
-          <Button onClick={handleNew} className="flex items-center gap-2">
-            <PlusCircle className="h-5 w-5" /> Adicionar Veículo
-          </Button>
-        </div>
-
-        {/* Linha 2 */}
-        <div className="flex items-center justify-between">
-          <Tabs
-            value={filterType}
-            onValueChange={setFilterType}
-            className="flex-1 max-w-md"
-          >
-            <TabsList>
-              <TabsTrigger value="all">Todos</TabsTrigger>
-              <TabsTrigger value="carros">
-                <Car className="inline h-4 w-4 mr-1" />
-                Carro
-              </TabsTrigger>
-              <TabsTrigger value="motos">
-                <Bike className="inline h-4 w-4 mr-1" />
-                Moto
-              </TabsTrigger>
-              <TabsTrigger value="caminhoes">
-                <Truck className="inline h-4 w-4 mr-1" />
-                Caminhão
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Input
-            placeholder="Buscar por placa, marca ou modelo…"
-            className="max-w-xs"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        {/* Loading / Lista */}
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((v) => {
-              const pt = plateTypes.find((t) => t.id === v.plate_type_id);
-              let Icon = Car;
-              if (pt?.code.includes("moto")) Icon = Bike;
-              if (pt?.code.includes("caminhao")) Icon = Truck;
-
-              return (
-                <div
-                  key={v.id}
-                  className="relative bg-gray-800 p-6 rounded-lg space-y-4 text-white"
-                >
-                  {/* Menu Opções */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="absolute top-3 right-3 p-1 hover:bg-gray-700 rounded">
-                      <MoreVertical className="h-5 w-5" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(v)}>
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDelete(v)}>
-                        Remover
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Placa */}
-                  <div className="flex justify-center mb-4">
-                    <LicensePlate
-                      plate={v.license_plate}
-                      plateColor={pt?.color || "#000"}
-                      plateTypeCode={pt?.code || ""}
-                    />
-                  </div>
-
-                  {/* Marca | Modelo com logo */}
-                  <div className="flex items-center justify-center space-x-2 text-xl font-semibold">
-                    {/* Supondo logos em /public/logos/{brand}.png */}
-                    <img
-                      src={`/logos/${v.brand.toLowerCase()}.png`}
-                      alt={v.brand}
-                      className="h-6 w-auto"
-                      onError={(e) => {
-                        (e.currentTarget as any).style.display = "none";
-                      }}
-                    />
-                    <span>{v.model}</span>
-                  </div>
-
-                  {/* Detalhes em tópicos */}
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Marca: {v.brand}</li>
-                    <li>Cor: {pt?.color ?? "—"}</li>
-                    <li>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(v.renavam || "", "RENAVAM")
-                        }
-                        className="hover:underline"
-                      >
-                        RENAVAM: {v.renavam ?? "Não informado"}
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        onClick={() =>
-                          copyToClipboard(v.year.split(" ")[0], "Ano")
-                        }
-                        className="hover:underline"
-                      >
-                        Ano: {v.year.split(" ")[0]}
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Dialog Novo/Editar */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-md w-full">
-            <DialogHeader>
-              <DialogTitle>
-                {editVehicle ? "Editar Veículo" : "Novo Veículo"}
-              </DialogTitle>
-            </DialogHeader>
-            <NewVehicleForm
-              initialData={editVehicle ?? undefined}
-              onSuccess={handleSuccess}
-            />
-          </DialogContent>
-        </Dialog>
-
-        {/* Dialog Remover */}
-        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <DialogContent className="sm:max-w-md w-full">
-            <DialogHeader>
-              <DialogTitle>Confirmar remoção</DialogTitle>
-            </DialogHeader>
-            <div className="flex justify-center mb-4">
-              {toDelete && (
-                <LicensePlate
-                  plate={toDelete.license_plate}
-                  plateColor={
-                    plateTypes.find((t) => t.id === toDelete.plate_type_id)
-                      ?.color || "#000"
-                  }
-                  plateTypeCode={
-                    plateTypes.find((t) => t.id === toDelete.plate_type_id)
-                      ?.code || ""
-                  }
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Meus Veículos</h1>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="w-4 h-4 mr-2" /> Novo Veículo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo Veículo</DialogTitle>
+              </DialogHeader>
+              {clientId && (
+                <NewVehicleForm
+                  clientId={clientId}
+                  onSuccess={onVehicleAdded}
                 />
               )}
-            </div>
-            <p className="mb-4 text-center">
-              Para confirmar, digite a placa do veículo{" "}
-              <strong>"{toDelete?.license_plate}"</strong>
-            </p>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="flex gap-4 items-center">
+          <div className="relative max-w-md">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Digite a placa exatamente"
-              value={confirmPlate}
-              onChange={(e) => setConfirmPlate(e.target.value)}
+              placeholder="Buscar por placa, marca ou modelo"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
             />
-            <div className="mt-6 flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="destructive"
-                disabled={confirmPlate !== toDelete?.license_plate}
-                onClick={handleDelete}
-              >
-                Confirmar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          </div>
+          
+          <Select
+            value={selectedCategory}
+            onValueChange={(value: VehicleCategory) => setSelectedCategory(value)}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filtrar por categoria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os veículos</SelectItem>
+              <SelectItem value="carros">Carros</SelectItem>
+              <SelectItem value="motos">Motos</SelectItem>
+              <SelectItem value="caminhoes">Caminhões</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="rounded-md border overflow-x-auto">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Placa
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Marca
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Modelo
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Ano
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Categoria
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Cor
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-border">
+              {filteredVehicles.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                    {vehicles.length === 0 
+                      ? "Nenhum veículo cadastrado. Clique em 'Novo Veículo' para começar."
+                      : "Nenhum veículo encontrado com os filtros aplicados."
+                    }
+                  </td>
+                </tr>
+              ) : (
+                filteredVehicles.map((vehicle) => (
+                  <tr key={vehicle.id} className="hover:bg-muted/50">
+                    <td className="px-4 py-2 font-medium">
+                      {vehicle.license_plate}
+                    </td>
+                    <td className="px-4 py-2">{vehicle.brand}</td>
+                    <td className="px-4 py-2">{vehicle.model}</td>
+                    <td className="px-4 py-2">{vehicle.year}</td>
+                    <td className="px-4 py-2">
+                      <Badge
+                        variant="secondary"
+                        className={getCategoryBadgeColor(vehicle.category)}
+                      >
+                        {getCategoryLabel(vehicle.category)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2">{vehicle.color || "-"}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => handleDeleteVehicle(vehicle.id)}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredVehicles.length > 0 && (
+          <div className="text-sm text-muted-foreground">
+            Mostrando {filteredVehicles.length} de {vehicles.length} veículos
+          </div>
+        )}
       </div>
     </AppLayout>
   );
-}
+};
+
+export default ClientVehicles;

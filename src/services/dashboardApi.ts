@@ -68,8 +68,8 @@ export class DashboardService {
       { status_name: string; count: number; color?: string }
     >();
     ordersByStatusData?.forEach((order) => {
-      const statusName = order.status?.name || "Desconhecido";
-      const color = order.status?.color;
+      const statusName = order.status?.[0]?.name || "Desconhecido";
+      const color = order.status?.[0]?.color;
       if (!ordersByStatusMap.has(statusName)) {
         ordersByStatusMap.set(statusName, {
           status_name: statusName,
@@ -94,7 +94,7 @@ export class DashboardService {
       { service_name: string; count: number }
     >();
     ordersByServiceTypeData?.forEach((order) => {
-      const serviceName = order.serviceType?.name || "Desconhecido";
+      const serviceName = order.serviceType?.[0]?.name || "Desconhecido";
       if (!ordersByServiceTypeMap.has(serviceName)) {
         ordersByServiceTypeMap.set(serviceName, {
           service_name: serviceName,
@@ -219,11 +219,11 @@ export class DashboardService {
       recentActivities.push({
         id: order.id,
         description: `Pedido ${
-          order.serviceType?.name || "desconhecido"
-        } para ${order.vehicle?.license_plate || "veículo desconhecido"} (R$ ${(
+          order.serviceType?.[0]?.name || "desconhecido"
+        } para ${order.vehicle?.[0]?.license_plate || "veículo desconhecido"} (R$ ${(
           order.value || 0
         ).toFixed(2)})`,
-        user_name: order.client?.name || "Cliente Desconhecido",
+        user_name: order.client?.[0]?.name || "Cliente Desconhecido",
         timestamp: order.created_at || new Date().toISOString(),
         type: "order",
       });
@@ -242,9 +242,9 @@ export class DashboardService {
     });
 
     recentMovementsData?.forEach((movement) => {
-      const item = movement.item?.name || "Item Desconhecido";
+      const item = movement.item?.[0]?.name || "Item Desconhecido";
       const responsible =
-        movement.responsible?.name || "Responsável Desconhecido";
+        movement.responsible?.[0]?.name || "Responsável Desconhecido";
       const type = movement.movement_type === "in" ? "Entrada" : "Saída";
       recentActivities.push({
         id: movement.id,
