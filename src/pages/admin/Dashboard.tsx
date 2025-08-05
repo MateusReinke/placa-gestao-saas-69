@@ -90,9 +90,70 @@ import ConfigureCustomWidgetDialog from "@/components/dashboard/ConfigureCustomW
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-// --- Componentes de Widget (Definidos no nível do módulo) ---
-// (Cole aqui as definições completas dos seus componentes WidgetTotalSellers, WidgetTotalClients, etc.)
-// Exemplo resumido:
+// --- Componentes de Widget Focados em Administração ---
+
+const WidgetTotalRevenue: React.FC<{
+  stats: DashboardStats | null;
+  config?: Record<string, any>;
+}> = ({ stats, config }) => {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+
+  const totalRevenue = stats?.monthlyRevenue || 0;
+
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {config?.title || "Faturamento Total"}
+        </CardTitle>
+        <CirclePlus className="h-4 w-4 text-green-500" />
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-center">
+        <div className="text-3xl font-bold">
+          {stats ? formatCurrency(totalRevenue) : <Loader2 className="h-6 w-6 animate-spin" />}
+        </div>
+        {stats !== null && (
+          <p className="text-xs text-muted-foreground mt-1">Receita mensal atual</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const WidgetOrdersInProgress: React.FC<{
+  stats: DashboardStats | null;
+  config?: Record<string, any>;
+}> = ({ stats, config }) => {
+  const ordersInProgress = stats ? (
+    stats.totalOrders -
+    (stats.ordersByStatus.find((s) => s.status_name === "Concluído")?.count || 0) -
+    (stats.ordersByStatus.find((s) => s.status_name === "Cancelado")?.count || 0)
+  ) : 0;
+
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {config?.title || "Pedidos em Andamento"}
+        </CardTitle>
+        <History className="h-4 w-4 text-amber-500" />
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-center">
+        <div className="text-3xl font-bold">
+          {stats ? ordersInProgress : <Loader2 className="h-6 w-6 animate-spin" />}
+        </div>
+        {stats !== null && (
+          <p className="text-xs text-muted-foreground mt-1">Necessitam atenção</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 const WidgetTotalSellers: React.FC<{
   stats: DashboardStats | null;
   config?: Record<string, any>;
@@ -139,37 +200,39 @@ const WidgetTotalClients: React.FC<{
   </Card>
 );
 
-const WidgetOpenOrders: React.FC<{
+const WidgetCriticalAlerts: React.FC<{
   stats: DashboardStats | null;
   config?: Record<string, any>;
-}> = ({ stats, config }) => (
-  <Card className="h-full flex flex-col">
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">
-        {config?.title || "Pedidos em Aberto"}
-      </CardTitle>
-      <List className="h-4 w-4 text-amber-500" />
-    </CardHeader>
-    <CardContent className="flex-grow flex flex-col justify-center">
-      <div className="text-3xl font-bold">
-        {stats ? (
-          stats.totalOrders -
-          (stats.ordersByStatus.find((s) => s.status_name === "Concluído")
-            ?.count || 0) -
-          (stats.ordersByStatus.find((s) => s.status_name === "Cancelado")
-            ?.count || 0)
-        ) : (
-          <Loader2 className="h-6 w-6 animate-spin" />
+}> = ({ stats, config }) => {
+  const criticalItems = stats?.lowStockItems?.filter(item => item.status === 'critical')?.length || 0;
+  const lowItems = stats?.lowStockItems?.filter(item => item.status === 'low')?.length || 0;
+
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium">
+          {config?.title || "Alertas Críticos"}
+        </CardTitle>
+        <CircleAlert className="h-4 w-4 text-red-500" />
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-center">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-red-600">Estoque Crítico:</span>
+            <span className="text-lg font-bold text-red-600">{criticalItems}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-amber-600">Estoque Baixo:</span>
+            <span className="text-lg font-bold text-amber-600">{lowItems}</span>
+          </div>
+        </div>
+        {stats !== null && (
+          <p className="text-xs text-muted-foreground mt-2">Itens precisam de reposição</p>
         )}
-      </div>
-      {stats !== null && (
-        <p className="text-xs text-muted-foreground mt-1">
-          Total de pedidos em andamento
-        </p>
-      )}
-    </CardContent>
-  </Card>
-);
+      </CardContent>
+    </Card>
+  );
+};
 
 const WidgetCriticalStock: React.FC<{
   stats: DashboardStats | null;
@@ -546,8 +609,11 @@ const widgetComponents: Record<
 > = {
   TotalSellers: WidgetTotalSellers,
   TotalClients: WidgetTotalClients,
-  OpenOrders: WidgetOpenOrders,
-  CriticalStock: WidgetCriticalStock,
+  OpenOrders: WidgetOrdersInProgress,
+  CriticalStock: WidgetCriticalAlerts,
+  TotalRevenue: WidgetTotalRevenue,
+  OrdersInProgress: WidgetOrdersInProgress,
+  CriticalAlerts: WidgetCriticalAlerts,
   MonthlyRevenueChart: WidgetMonthlyRevenueChart,
   ServiceDistributionChart: WidgetServiceDistributionChart,
   StatusDistributionChart: WidgetStatusDistributionChart,
@@ -556,13 +622,20 @@ const widgetComponents: Record<
   CustomData: WidgetCustomData,
 };
 
-// Metadados dos widgets disponíveis
+// Metadados dos widgets focados em administração
 const availableWidgets: WidgetMetadata[] = [
   {
-    type: "TotalSellers",
-    title: "Vendedores",
-    description: "Total de vendedores ativos.",
-    icon: Users,
+    type: "TotalRevenue",
+    title: "Faturamento Total",
+    description: "Receita mensal atual do negócio.",
+    icon: CirclePlus,
+    defaultLayout: { w: 1, h: 1, minW: 1, minH: 1 },
+  },
+  {
+    type: "OrdersInProgress", 
+    title: "Pedidos em Andamento",
+    description: "Pedidos que necessitam atenção.",
+    icon: History,
     defaultLayout: { w: 1, h: 1, minW: 1, minH: 1 },
   },
   {
@@ -573,17 +646,17 @@ const availableWidgets: WidgetMetadata[] = [
     defaultLayout: { w: 1, h: 1, minW: 1, minH: 1 },
   },
   {
-    type: "OpenOrders",
-    title: "Pedidos Abertos",
-    description: "Pedidos em andamento.",
-    icon: List,
+    type: "CriticalAlerts",
+    title: "Alertas Críticos",
+    description: "Problemas que precisam atenção imediata.",
+    icon: CircleAlert,
     defaultLayout: { w: 1, h: 1, minW: 1, minH: 1 },
   },
   {
-    type: "CriticalStock",
-    title: "Estoque Crítico",
-    description: "Itens com baixo estoque.",
-    icon: CircleAlert,
+    type: "TotalSellers",
+    title: "Vendedores",
+    description: "Total de vendedores ativos.",
+    icon: Users,
     defaultLayout: { w: 1, h: 1, minW: 1, minH: 1 },
   },
   {
@@ -629,13 +702,23 @@ interface DefaultLayoutConfigItem extends RGL_Layout {
   type: WidgetType;
 }
 
-// Configuração de Layout Padrão (Nível do Módulo)
+// Configuração de Layout Padrão focado em Administração
 const DEFAULT_LAYOUTS_CONFIG: { lg: DefaultLayoutConfigItem[] } = {
   lg: [
     {
-      i: "TotalSellers-default",
-      type: "TotalSellers",
+      i: "TotalRevenue-default",
+      type: "TotalRevenue",
       x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+      minW: 1,
+      minH: 1,
+    },
+    {
+      i: "OrdersInProgress-default",
+      type: "OrdersInProgress",
+      x: 1,
       y: 0,
       w: 1,
       h: 1,
@@ -645,16 +728,6 @@ const DEFAULT_LAYOUTS_CONFIG: { lg: DefaultLayoutConfigItem[] } = {
     {
       i: "TotalClients-default",
       type: "TotalClients",
-      x: 1,
-      y: 0,
-      w: 1,
-      h: 1,
-      minW: 1,
-      minH: 1,
-    },
-    {
-      i: "OpenOrders-default",
-      type: "OpenOrders",
       x: 2,
       y: 0,
       w: 1,
@@ -663,8 +736,8 @@ const DEFAULT_LAYOUTS_CONFIG: { lg: DefaultLayoutConfigItem[] } = {
       minH: 1,
     },
     {
-      i: "CriticalStock-default",
-      type: "CriticalStock",
+      i: "CriticalAlerts-default",
+      type: "CriticalAlerts",
       x: 3,
       y: 0,
       w: 1,
