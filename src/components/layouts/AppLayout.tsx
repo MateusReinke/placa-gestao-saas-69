@@ -54,7 +54,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     const items = [];
 
     // Admin menu items
-    if (user?.role === 'admin') {
+    if (userProfile?.role === 'admin') {
       items.push(
         {
           icon: LayoutDashboard,
@@ -108,7 +108,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
 
     // Seller menu items
-    else if (user?.role === 'seller') {
+    else if (userProfile?.role === 'seller') {
       items.push(
         {
           icon: LayoutDashboard,
@@ -156,7 +156,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
 
     // Client menu items (physical or juridical)
-    else if (user?.role === 'physical' || user?.role === 'juridical') {
+    else if (userProfile?.role === 'physical' || userProfile?.role === 'juridical') {
       items.push(
         {
           icon: LayoutDashboard,
@@ -231,7 +231,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <nav className="flex-1 py-4">
           <ul className="space-y-1 px-2">
             {menuItems.map((item) => {
-              if (!user?.role || !item.roles.includes(user.role)) return null;
+              if (!userProfile?.role || !item.roles.includes(userProfile.role)) return null;
               
               return (
                 <li key={item.href}>
@@ -289,8 +289,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link to={user?.role === 'admin' ? '/admin/settings' : 
-                          user?.role === 'seller' ? '/seller/settings' : 
+                <Link to={userProfile?.role === 'admin' ? '/admin/settings' : 
+                          userProfile?.role === 'seller' ? '/seller/settings' : 
                           '/client/settings'} className="cursor-pointer">
                   Perfil
                 </Link>
